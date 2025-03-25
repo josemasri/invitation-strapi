@@ -1,0 +1,38 @@
+{
+  "kind": "collectionType",
+  "collectionName": "guests",
+  "info": {
+    "singularName": "guest",
+    "pluralName": "guests",
+    "displayName": "Guest",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "maxGuests": {
+      "type": "integer",
+      "default": 1
+    },
+    "phone": {
+      "type": "string",
+      "regex": "^\\+[1-9]\\d{1,14}$"
+    },
+    "confirmed": {
+      "type": "enumeration",
+      "enum": [
+        "unknown",
+        "yes",
+        "no"
+      ],
+      "default": "unknown"
+    },
+    "confirmedGuests": {
+      "type": "integer"
+    }
+  }
+}

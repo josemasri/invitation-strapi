@@ -19,8 +19,7 @@
       "default": 1
     },
     "phone": {
-      "type": "string",
-      "regex": "^\\+[1-9]\\d{1,14}$"
+      "type": "string"
     },
     "confirmed": {
       "type": "enumeration",

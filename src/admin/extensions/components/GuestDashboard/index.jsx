@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Box, Typography, Flex, Button, Loader, EmptyStateLayout } from "@strapi/design-system";
+import { Box, Typography, Flex, Button, Loader, EmptyStateLayout, Tabs, Field, Grid } from "@strapi/design-system";
 import { useFetchClient } from "@strapi/strapi/admin";
 import axios from "axios";
 
@@ -31,6 +31,7 @@ const GuestDashboard = () => {
     confirmedGuestsByGroom: 0,
     totalMessages: 0,
   });
+  const [activeTab, setActiveTab] = useState(0);
   const [statusFilter, setStatusFilter] = useState("all");
   const [invitedByFilter, setInvitedByFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -742,34 +743,109 @@ const GuestDashboard = () => {
         
         <BrideGroomDashboards guestData={guestData} />
         
-        <ConfirmationProgress 
+        <ConfirmationProgress
           confirmedPercentage={confirmedPercentage}
           declinedPercentage={declinedPercentage}
           unknownPercentage={unknownPercentage}
         />
         
-        <GuestList
-          guests={guests}
-          selectedGuests={selectedGuests}
-          handleSelectGuest={handleSelectGuest}
-          handleSelectAll={handleSelectAll}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          invitedByFilter={invitedByFilter}
-          setInvitedByFilter={setInvitedByFilter}
-          triggerFileUpload={triggerFileUpload}
-          isUploading={isUploading}
-          downloadSampleCSV={downloadSampleCSV}
-          sendWhatsAppInvitations={sendWhatsAppInvitations}
-          sendWhatsAppReminders={sendWhatsAppReminders}
-          fileInputRef={fileInputRef}
-          handleFileUpload={handleFileUpload}
-          onAddGuest={handleAddGuest}
-          onEditGuest={handleEditGuest}
-          onDeleteGuest={handleDeleteGuest}
-        />
+        {/* Tabs para separar invitados por estado */}
+        <Box marginTop={4}>
+          <Tabs.Root defaultValue="no-invitation" onValueChange={(value) => setActiveTab(["no-invitation", "pending", "confirmed"].indexOf(value))}>
+            <Tabs.List aria-label="Tabs de invitados">
+              <Tabs.Trigger value="no-invitation">Sin invitación enviada</Tabs.Trigger>
+              <Tabs.Trigger value="pending">Invitación enviada sin confirmar</Tabs.Trigger>
+              <Tabs.Trigger value="confirmed">Confirmados</Tabs.Trigger>
+            </Tabs.List>
+            
+            {/* Tab 1: Invitados sin invitación enviada */}
+            <Tabs.Content value="no-invitation">
+              <Box padding={4}>
+                <GuestList
+                  guests={guests.filter(guest => guest.timesSended === 0)}
+                  selectedGuests={selectedGuests}
+                  handleSelectGuest={handleSelectGuest}
+                  handleSelectAll={handleSelectAll}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  invitedByFilter={invitedByFilter}
+                  setInvitedByFilter={setInvitedByFilter}
+                  triggerFileUpload={triggerFileUpload}
+                  isUploading={isUploading}
+                  downloadSampleCSV={downloadSampleCSV}
+                  sendWhatsAppInvitations={sendWhatsAppInvitations}
+                  sendWhatsAppReminders={sendWhatsAppReminders}
+                  fileInputRef={fileInputRef}
+                  handleFileUpload={handleFileUpload}
+                  onAddGuest={handleAddGuest}
+                  onEditGuest={handleEditGuest}
+                  onDeleteGuest={handleDeleteGuest}
+                />
+              </Box>
+            </Tabs.Content>
+            
+            {/* Tab 2: Invitados con invitación enviada pero sin confirmar */}
+            <Tabs.Content value="pending">
+              <Box padding={4}>
+                <GuestList
+                  guests={guests.filter(guest =>
+                    guest.timesSended > 0 &&
+                    (guest.confirmed === "unknown" || !guest.confirmed)
+                  )}
+                  selectedGuests={selectedGuests}
+                  handleSelectGuest={handleSelectGuest}
+                  handleSelectAll={handleSelectAll}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  invitedByFilter={invitedByFilter}
+                  setInvitedByFilter={setInvitedByFilter}
+                  triggerFileUpload={triggerFileUpload}
+                  isUploading={isUploading}
+                  downloadSampleCSV={downloadSampleCSV}
+                  sendWhatsAppInvitations={sendWhatsAppInvitations}
+                  sendWhatsAppReminders={sendWhatsAppReminders}
+                  fileInputRef={fileInputRef}
+                  handleFileUpload={handleFileUpload}
+                  onAddGuest={handleAddGuest}
+                  onEditGuest={handleEditGuest}
+                  onDeleteGuest={handleDeleteGuest}
+                />
+              </Box>
+            </Tabs.Content>
+            
+            {/* Tab 3: Invitados confirmados */}
+            <Tabs.Content value="confirmed">
+              <Box padding={4}>
+                <GuestList
+                  guests={guests.filter(guest => guest.confirmed === "yes")}
+                  selectedGuests={selectedGuests}
+                  handleSelectGuest={handleSelectGuest}
+                  handleSelectAll={handleSelectAll}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  invitedByFilter={invitedByFilter}
+                  setInvitedByFilter={setInvitedByFilter}
+                  triggerFileUpload={triggerFileUpload}
+                  isUploading={isUploading}
+                  downloadSampleCSV={downloadSampleCSV}
+                  sendWhatsAppInvitations={sendWhatsAppInvitations}
+                  sendWhatsAppReminders={sendWhatsAppReminders}
+                  fileInputRef={fileInputRef}
+                  handleFileUpload={handleFileUpload}
+                  onAddGuest={handleAddGuest}
+                  onEditGuest={handleEditGuest}
+                  onDeleteGuest={handleDeleteGuest}
+                />
+              </Box>
+            </Tabs.Content>
+          </Tabs.Root>
+        </Box>
       </Box>
 
       {/* Modal de resultados de importación */}

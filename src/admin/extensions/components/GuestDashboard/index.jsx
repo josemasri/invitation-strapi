@@ -436,6 +436,39 @@ const GuestDashboard = () => {
     setUploadResults(null);
   };
 
+  // Function to update timesSended for selected guests
+  const updateTimesSendedForSelectedGuests = async (guestIds) => {
+    try {
+      // Process each guest one by one to update timesSended
+      for (const documentId of guestIds) {
+        // Find the guest in the current list
+        const guest = guests.find(g => g.documentId === documentId);
+        
+        if (guest) {
+          // Increment timesSended
+          const updatedTimesSended = (guest.timesSended || 0) + 1;
+          
+          // Update the guest using the Content Manager API
+          await axios({
+            method: "PUT",
+            url: `/content-manager/collection-types/api::guest.guest/${documentId}`,
+            data: {
+              timesSended: updatedTimesSended
+            },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+            },
+          });
+          
+          console.log(`Updated timesSended for guest ${guest.name} to ${updatedTimesSended}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error updating timesSended:", error);
+    }
+  };
+
   // Send WhatsApp invitations to selected guests via API
   const sendWhatsAppInvitations = async () => {
     const selectedGuestIds = Object.keys(selectedGuests).filter(
@@ -476,7 +509,10 @@ const GuestDashboard = () => {
         `Invitaciones enviadas correctamente a ${result.data?.count || 0} invitados`
       );
 
-      // Refresh data to update timesSended
+      // Update timesSended for selected guests
+      await updateTimesSendedForSelectedGuests(selectedGuestIds);
+      
+      // Refresh data to update UI
       fetchGuestData();
       
       // Reset selected guests
@@ -541,7 +577,10 @@ const GuestDashboard = () => {
         `Recordatorios enviados correctamente a ${result.data?.count || 0} invitados`
       );
 
-      // Refresh data to update timesSended
+      // Update timesSended for selected guests
+      await updateTimesSendedForSelectedGuests(guestIdsWithInvitation);
+      
+      // Refresh data to update UI
       fetchGuestData();
       
       // Reset selected guests

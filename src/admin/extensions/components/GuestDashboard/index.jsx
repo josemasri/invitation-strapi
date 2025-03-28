@@ -476,11 +476,79 @@ const GuestDashboard = () => {
         `Invitaciones enviadas correctamente a ${result.data?.count || 0} invitados`
       );
 
+      // Refresh data to update timesSended
+      fetchGuestData();
+      
       // Reset selected guests
       setSelectedGuests({});
     } catch (err) {
       console.error("Error sending invitations:", err);
       alert("Error al enviar invitaciones: " + err.message);
+    } finally {
+      setSendingInvitations(false);
+    }
+  };
+  
+  // Send WhatsApp reminders to selected guests via API
+  const sendWhatsAppReminders = async () => {
+    const selectedGuestIds = Object.keys(selectedGuests).filter(
+      (id) => selectedGuests[id]
+    );
+
+    if (selectedGuestIds.length === 0) {
+      alert("Por favor selecciona al menos un invitado");
+      return;
+    }
+
+    // Filter only guests that have already received an invitation (timesSended > 0)
+    const guestsWithInvitation = guests.filter(
+      (guest) => selectedGuests[guest.documentId] && guest.timesSended > 0
+    );
+    
+    const guestIdsWithInvitation = guestsWithInvitation.map(guest => guest.documentId);
+    
+    if (guestIdsWithInvitation.length === 0) {
+      alert("Ninguno de los invitados seleccionados ha recibido una invitación previa");
+      return;
+    }
+
+    try {
+      setSendingInvitations(true);
+
+      // Call the API to send reminders to selected guests
+      const response = await axios({
+        method: "POST",
+        url: `${whatsappApiUrl}/sendReminders`,
+        data: {
+          documentIds: guestIdsWithInvitation,
+        },
+        headers: {
+          "Content-Type": "application/json",
+          "Referrer-Policy": "no-referrer",
+          Origin: window.location.origin,
+          mode: "cors",
+          Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+        },
+        timeout: 10000, // 10 second timeout
+      });
+
+      // With axios, the data is already parsed
+      const result = response.data;
+
+      console.log("Reminder response:", result);
+
+      alert(
+        `Recordatorios enviados correctamente a ${result.data?.count || 0} invitados`
+      );
+
+      // Refresh data to update timesSended
+      fetchGuestData();
+      
+      // Reset selected guests
+      setSelectedGuests({});
+    } catch (err) {
+      console.error("Error sending reminders:", err);
+      alert("Error al enviar recordatorios: " + err.message);
     } finally {
       setSendingInvitations(false);
     }
@@ -656,6 +724,7 @@ const GuestDashboard = () => {
           isUploading={isUploading}
           downloadSampleCSV={downloadSampleCSV}
           sendWhatsAppInvitations={sendWhatsAppInvitations}
+          sendWhatsAppReminders={sendWhatsAppReminders}
           fileInputRef={fileInputRef}
           handleFileUpload={handleFileUpload}
           onAddGuest={handleAddGuest}

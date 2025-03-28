@@ -14,7 +14,7 @@ import {
   VisuallyHidden,
   Card,
 } from "@strapi/design-system";
-import { List, Plus, Pencil, Trash } from '@strapi/icons';
+import { List, Plus, Pencil, Trash, Message, Bell } from '@strapi/icons';
 import CollapsibleSection from "./CollapsibleSection";
 
 const GuestList = ({
@@ -32,6 +32,7 @@ const GuestList = ({
   isUploading,
   downloadSampleCSV,
   sendWhatsAppInvitations,
+  sendWhatsAppReminders,
   fileInputRef,
   handleFileUpload,
   onAddGuest,
@@ -158,7 +159,7 @@ const GuestList = ({
                 </select>
               </Flex>
             </Box>
-            <Box>
+            <Box marginRight={2}>
               <Button
                 variant="success"
                 onClick={sendWhatsAppInvitations}
@@ -167,8 +168,23 @@ const GuestList = ({
                     .length === 0
                 }
                 size="S"
+                startIcon={<Message aria-hidden />}
               >
-                Enviar WhatsApp
+                Enviar Invitación
+              </Button>
+            </Box>
+            <Box>
+              <Button
+                variant="secondary"
+                onClick={sendWhatsAppReminders}
+                disabled={
+                  Object.keys(selectedGuests).filter((id) => selectedGuests[id])
+                    .length === 0
+                }
+                size="S"
+                startIcon={<Bell aria-hidden />}
+              >
+                Enviar Recordatorio
               </Button>
             </Box>
           </Flex>
@@ -178,7 +194,7 @@ const GuestList = ({
       {/* Contenedor con scroll horizontal para pantallas pequeñas */}
       <Box style={{ overflowX: "auto" }}>
         <Table
-          colCount={8} /* Actualizado para incluir la columna de acciones */
+          colCount={9} /* Actualizado para incluir la columna de mensajes enviados */
           rowCount={
             guests.filter((guest) => {
               const matchesStatus =
@@ -231,6 +247,12 @@ const GuestList = ({
             </Th>
             <Th>
               <Typography variant="sigma">Invitado Por</Typography>
+            </Th>
+            <Th>
+              <Flex alignItems="center" gap={2}>
+                <Message aria-hidden width="12px" height="12px" />
+                <Typography variant="sigma">Mensajes Enviados</Typography>
+              </Flex>
             </Th>
             <Th>
               <Typography variant="sigma">Acciones</Typography>
@@ -301,6 +323,24 @@ const GuestList = ({
                         ? "Novia"
                         : guest.invitedBy || "-"}
                   </Typography>
+                </Td>
+                <Td>
+                  <Flex alignItems="center" gap={2}>
+                    {guest.timesSended > 0 && (
+                      <Message
+                        aria-hidden
+                        color={guest.timesSended > 1 ? "#4945ff" : "#32324d"}
+                        width="12px"
+                        height="12px"
+                      />
+                    )}
+                    <Typography
+                      fontWeight={guest.timesSended > 0 ? "bold" : "normal"}
+                      textColor={guest.timesSended > 1 ? "primary600" : "neutral800"}
+                    >
+                      {guest.timesSended || 0}
+                    </Typography>
+                  </Flex>
                 </Td>
                 <Td>
                   <Flex gap={2}>

@@ -66,7 +66,7 @@ const GuestDashboard = () => {
   const [apiAvailable, setApiAvailable] = useState(false);
   const qrPollInterval = useRef(null);
   const qrImageRef = useRef(null);
-  const whatsappApiUrl = "http://localhost:3000"; // WhatsApp API URL
+  const whatsappApiUrl = "https://vww4g4ks4kwk4s0koowkw0gg.s1.josemasri.com"; // WhatsApp API URL
 
   // Use the authenticated fetch client from Strapi
   const { get, post } = useFetchClient();

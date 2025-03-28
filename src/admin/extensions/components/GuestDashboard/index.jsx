@@ -61,6 +61,10 @@ const GuestDashboard = () => {
     maxGuests: 0,
     invitedByBride: 0,
     invitedByGroom: 0,
+    confirmedByBride: 0,
+    confirmedByGroom: 0,
+    confirmedGuestsByBride: 0,
+    confirmedGuestsByGroom: 0,
     totalMessages: 0,
   });
   const [statusFilter, setStatusFilter] = useState("all");
@@ -137,6 +141,28 @@ const GuestDashboard = () => {
         (guest) => guest.invitedBy === "Groom"
       ).length;
 
+      // Calculate confirmed invitations by bride and groom
+      const confirmedByBride = guests.filter(
+        (guest) => guest.invitedBy === "Bride" && guest.confirmed === "yes"
+      ).length;
+      const confirmedByGroom = guests.filter(
+        (guest) => guest.invitedBy === "Groom" && guest.confirmed === "yes"
+      ).length;
+
+      // Calculate total confirmed guests by bride and groom
+      const confirmedGuestsByBride = guests
+        .filter((guest) => guest.invitedBy === "Bride" && guest.confirmed === "yes")
+        .reduce(
+          (sum, guest) => sum + (guest.confirmedGuests || guest.maxGuests),
+          0
+        );
+      const confirmedGuestsByGroom = guests
+        .filter((guest) => guest.invitedBy === "Groom" && guest.confirmed === "yes")
+        .reduce(
+          (sum, guest) => sum + (guest.confirmedGuests || guest.maxGuests),
+          0
+        );
+
       // Set total messages to 0 since message field has been removed
       const totalMessages = 0;
 
@@ -149,6 +175,10 @@ const GuestDashboard = () => {
         maxGuests,
         invitedByBride,
         invitedByGroom,
+        confirmedByBride,
+        confirmedByGroom,
+        confirmedGuestsByBride,
+        confirmedGuestsByGroom,
         totalMessages,
       });
     } catch (err) {
@@ -616,23 +646,112 @@ const GuestDashboard = () => {
             </Box>
           </Flex>
 
-          <Flex gap={2} wrap="wrap" paddingTop={2}>
+        </Box>
+
+        <Box paddingBottom={3}>
+          <Typography variant="epsilon" fontWeight="bold" paddingBottom={2}>
+            Dashboard de Invitados por Novia y Novio
+          </Typography>
+
+          <Flex gap={2} wrap="wrap">
             <Box width="calc(50% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Invitados por la Novia"
-                value={guestData.invitedByBride}
-                description={`${Math.round((guestData.invitedByBride / guestData.total) * 100)}% del total`}
-                color="primary600"
-              />
+              <Card padding={3}>
+                <Typography variant="delta" fontWeight="bold" textColor="primary600" paddingBottom={2}>
+                  Dashboard de la Novia
+                </Typography>
+                <Flex gap={2} wrap="wrap">
+                  <Box width="calc(33% - 4px)">
+                    <StatCard
+                      title="Total Invitados"
+                      value={guestData.invitedByBride}
+                      description={`${Math.round((guestData.invitedByBride / guestData.total) * 100)}% del total`}
+                      color="primary600"
+                    />
+                  </Box>
+                  <Box width="calc(33% - 4px)">
+                    <StatCard
+                      title="Confirmados"
+                      value={guestData.confirmedByBride}
+                      description={`${guestData.invitedByBride > 0 ? Math.round((guestData.confirmedByBride / guestData.invitedByBride) * 100) : 0}% de tasa de confirmación`}
+                      color="primary600"
+                    />
+                  </Box>
+                  <Box width="calc(33% - 4px)">
+                    <StatCard
+                      title="Personas"
+                      value={guestData.confirmedGuestsByBride}
+                      description="Asistentes confirmados"
+                      color="primary600"
+                    />
+                  </Box>
+                </Flex>
+                <Box paddingTop={2}>
+                  <Box
+                    background="neutral200"
+                    height="8px"
+                    borderRadius="4px"
+                    overflow="hidden"
+                    marginTop={2}
+                  >
+                    <Box
+                      background="primary600"
+                      height="100%"
+                      width={`${guestData.invitedByBride > 0 ? Math.round((guestData.confirmedByBride / guestData.invitedByBride) * 100) : 0}%`}
+                      style={{ transition: "width 0.5s ease" }}
+                    />
+                  </Box>
+                </Box>
+              </Card>
             </Box>
 
             <Box width="calc(50% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Invitados por el Novio"
-                value={guestData.invitedByGroom}
-                description={`${Math.round((guestData.invitedByGroom / guestData.total) * 100)}% del total`}
-                color="secondary600"
-              />
+              <Card padding={3}>
+                <Typography variant="delta" fontWeight="bold" textColor="secondary600" paddingBottom={2}>
+                  Dashboard del Novio
+                </Typography>
+                <Flex gap={2} wrap="wrap">
+                  <Box width="calc(33% - 4px)">
+                    <StatCard
+                      title="Total Invitados"
+                      value={guestData.invitedByGroom}
+                      description={`${Math.round((guestData.invitedByGroom / guestData.total) * 100)}% del total`}
+                      color="secondary600"
+                    />
+                  </Box>
+                  <Box width="calc(33% - 4px)">
+                    <StatCard
+                      title="Confirmados"
+                      value={guestData.confirmedByGroom}
+                      description={`${guestData.invitedByGroom > 0 ? Math.round((guestData.confirmedByGroom / guestData.invitedByGroom) * 100) : 0}% de tasa de confirmación`}
+                      color="secondary600"
+                    />
+                  </Box>
+                  <Box width="calc(33% - 4px)">
+                    <StatCard
+                      title="Personas"
+                      value={guestData.confirmedGuestsByGroom}
+                      description="Asistentes confirmados"
+                      color="secondary600"
+                    />
+                  </Box>
+                </Flex>
+                <Box paddingTop={2}>
+                  <Box
+                    background="neutral200"
+                    height="8px"
+                    borderRadius="4px"
+                    overflow="hidden"
+                    marginTop={2}
+                  >
+                    <Box
+                      background="secondary600"
+                      height="100%"
+                      width={`${guestData.invitedByGroom > 0 ? Math.round((guestData.confirmedByGroom / guestData.invitedByGroom) * 100) : 0}%`}
+                      style={{ transition: "width 0.5s ease" }}
+                    />
+                  </Box>
+                </Box>
+              </Card>
             </Box>
           </Flex>
         </Box>

@@ -139,7 +139,7 @@ const GuestDashboard = () => {
 
   // Handle select all guests
   const handleSelectAll = () => {
-    const allSelected = guests.every((guest) => selectedGuests[guest.id]);
+    const allSelected = guests.every((guest) => selectedGuests[guest.documentId]);
 
     if (allSelected) {
       // If all are selected, unselect all
@@ -148,7 +148,7 @@ const GuestDashboard = () => {
       // Otherwise, select all
       const newSelected = {};
       guests.forEach((guest) => {
-        newSelected[guest.id] = true;
+        newSelected[guest.documentId] = true;
       });
       setSelectedGuests(newSelected);
     }
@@ -501,7 +501,7 @@ const GuestDashboard = () => {
                 <Checkbox
                   checked={
                     guests.length > 0 &&
-                    guests.every((guest) => selectedGuests[guest.id])
+                    guests.every((guest) => selectedGuests[guest.documentId])
                   }
                   onClick={handleSelectAll}
                 >
@@ -530,11 +530,11 @@ const GuestDashboard = () => {
           </Thead>
           <Tbody>
             {guests.map((guest) => (
-              <Tr key={guest.id}>
+              <Tr key={guest.documentId}>
                 <Td>
                   <Checkbox
-                    checked={Boolean(selectedGuests[guest.id])}
-                    onClick={() => handleSelectGuest(guest.id)}
+                    checked={Boolean(selectedGuests[guest.documentId])}
+                    onClick={() => handleSelectGuest(guest.documentId)}
                   >
                     <VisuallyHidden>Seleccionar {guest.name}</VisuallyHidden>
                   </Checkbox>

@@ -1,0 +1,29 @@
+{
+  "kind": "singleType",
+  "collectionName": "general_infos",
+  "info": {
+    "singularName": "general-info",
+    "pluralName": "general-infos",
+    "displayName": "General Info"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "groomName": {
+      "type": "string"
+    },
+    "brideName": {
+      "type": "string"
+    },
+    "Address": {
+      "type": "text"
+    },
+    "date": {
+      "type": "datetime"
+    },
+    "desscode": {
+      "type": "string"
+    }
+  }
+}

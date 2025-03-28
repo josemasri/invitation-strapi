@@ -1,51 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Box,
-  Typography,
-  Card,
-  Flex,
-  Button,
-  Loader,
-  EmptyStateLayout,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Td,
-  Th,
-  Checkbox,
-  VisuallyHidden,
-  Alert,
-  Portal,
-  Dialog,
-} from "@strapi/design-system";
-import { useFetchClient, useAuth } from "@strapi/strapi/admin";
+import { Box, Typography, Flex, Button, Loader, EmptyStateLayout } from "@strapi/design-system";
+import { useFetchClient } from "@strapi/strapi/admin";
 import axios from "axios";
-// We'll use a simple alert instead of the notification system
 
-const StatCard = ({ title, value, description, color = "neutral800" }) => {
-  return (
-    <Card padding={2} style={{ height: "100%" }}>
-      <Flex direction="column" alignItems="flex-start" gap={1}>
-        <Typography variant="pi" fontWeight="bold" textColor={color}>
-          {title}
-        </Typography>
-        <Typography variant="delta" fontWeight="bold" textColor={color}>
-          {value}
-        </Typography>
-        {description && (
-          <Typography
-            variant="pi"
-            textColor="neutral600"
-            style={{ fontSize: "0.75rem" }}
-          >
-            {description}
-          </Typography>
-        )}
-      </Flex>
-    </Card>
-  );
-};
+// Importar componentes
+import GuestSummary from "./GuestSummary";
+import BrideGroomDashboards from "./BrideGroomDashboards";
+import ConfirmationProgress from "./ConfirmationProgress";
+import GuestList from "./GuestList";
+import UploadResultsModal from "./UploadResultsModal";
+import GuestFormModal from "./GuestFormModal";
 
 const GuestDashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -74,6 +38,10 @@ const GuestDashboard = () => {
   const [uploadResults, setUploadResults] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  // Estados para el modal de agregar/editar invitados
+  const [showGuestFormModal, setShowGuestFormModal] = useState(false);
+  const [editingGuest, setEditingGuest] = useState(null);
+  const [isSubmittingGuest, setIsSubmittingGuest] = useState(false);
   // WhatsApp API integration
   const [qrStatus, setQrStatus] = useState({
     clientReady: false,
@@ -522,6 +490,76 @@ const GuestDashboard = () => {
     fetchGuestData();
   }, []);
 
+  // Funciones para agregar, editar y eliminar invitados
+  const handleAddGuest = () => {
+    setEditingGuest(null);
+    setShowGuestFormModal(true);
+  };
+
+  const handleEditGuest = (guest) => {
+    setEditingGuest(guest);
+    setShowGuestFormModal(true);
+  };
+
+  const handleDeleteGuest = async (documentId) => {
+    if (!window.confirm("¿Está seguro que desea eliminar este invitado?")) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Usar el método correcto para eliminar
+      await axios({
+        method: "DELETE",
+        url: `/content-manager/collection-types/api::guest.guest/${documentId}`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+        },
+      });
+      
+      // Actualizar la lista de invitados
+      fetchGuestData();
+    } catch (error) {
+      console.error("Error al eliminar invitado:", error);
+      alert("Error al eliminar invitado: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitGuestForm = async (formData, documentId) => {
+    try {
+      setIsSubmittingGuest(true);
+      
+      if (documentId) {
+        // Editar invitado existente
+        // Usar axios para tener más control sobre la solicitud
+        await axios({
+          method: "PUT",
+          url: `/content-manager/collection-types/api::guest.guest/${documentId}`,
+          data: formData,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+          },
+        });
+      } else {
+        // Crear nuevo invitado
+        await fetchClient.post("/content-manager/collection-types/api::guest.guest", formData);
+      }
+      
+      // Cerrar modal y actualizar datos
+      setShowGuestFormModal(false);
+      fetchGuestData();
+    } catch (error) {
+      console.error("Error al guardar invitado:", error);
+      alert("Error al guardar invitado: " + error.message);
+    } finally {
+      setIsSubmittingGuest(false);
+    }
+  };
+
   // Calculate percentages
   const confirmedPercentage =
     guestData.total > 0
@@ -586,644 +624,62 @@ const GuestDashboard = () => {
         >
           <Box>
             <Typography variant="beta">Dashboard de Invitados</Typography>
-            <Typography variant="pi" textColor="neutral600">
-              Estadísticas y gráficos sobre los invitados a la boda
-            </Typography>
           </Box>
           <Button onClick={fetchGuestData} size="S">
             Refrescar
           </Button>
         </Flex>
 
-        <Box paddingBottom={3}>
-          <Typography variant="epsilon" fontWeight="bold" paddingBottom={2}>
-            Resumen y Distribución
-          </Typography>
-
-          <Flex gap={2} wrap="wrap">
-            <Box width="calc(20% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Total Invitaciones"
-                value={guestData.total}
-                description="Total enviadas"
-              />
-            </Box>
-
-            <Box width="calc(20% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Asistencia"
-                value={`${guestData.confirmedGuests}/${guestData.maxGuests}`}
-                description={`${attendancePercentage}% esperada`}
-                color="success600"
-              />
-            </Box>
-
-            <Box width="calc(20% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Confirmados"
-                value={`${guestData.confirmed} (${confirmedPercentage}%)`}
-                description="Han confirmado"
-                color="success600"
-              />
-            </Box>
-
-            <Box width="calc(20% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Rechazados"
-                value={`${guestData.declined} (${declinedPercentage}%)`}
-                description="Han declinado"
-                color="danger600"
-              />
-            </Box>
-
-            <Box width="calc(20% - 8px)" marginBottom={2}>
-              <StatCard
-                title="Pendientes"
-                value={`${guestData.unknown} (${unknownPercentage}%)`}
-                description="Sin responder"
-                color="warning600"
-              />
-            </Box>
-          </Flex>
-
-        </Box>
-
-        <Box paddingBottom={3}>
-          <Typography variant="epsilon" fontWeight="bold" paddingBottom={2}>
-            Dashboard de Invitados por Novia y Novio
-          </Typography>
-
-          <Flex gap={2} wrap="wrap">
-            <Box width="calc(50% - 8px)" marginBottom={2}>
-              <Card padding={3}>
-                <Typography variant="delta" fontWeight="bold" textColor="primary600" paddingBottom={2}>
-                  Dashboard de la Novia
-                </Typography>
-                <Flex gap={2} wrap="wrap">
-                  <Box width="calc(33% - 4px)">
-                    <StatCard
-                      title="Total Invitados"
-                      value={guestData.invitedByBride}
-                      description={`${Math.round((guestData.invitedByBride / guestData.total) * 100)}% del total`}
-                      color="primary600"
-                    />
-                  </Box>
-                  <Box width="calc(33% - 4px)">
-                    <StatCard
-                      title="Confirmados"
-                      value={guestData.confirmedByBride}
-                      description={`${guestData.invitedByBride > 0 ? Math.round((guestData.confirmedByBride / guestData.invitedByBride) * 100) : 0}% de tasa de confirmación`}
-                      color="primary600"
-                    />
-                  </Box>
-                  <Box width="calc(33% - 4px)">
-                    <StatCard
-                      title="Personas"
-                      value={guestData.confirmedGuestsByBride}
-                      description="Asistentes confirmados"
-                      color="primary600"
-                    />
-                  </Box>
-                </Flex>
-                <Box paddingTop={2}>
-                  <Box
-                    background="neutral200"
-                    height="8px"
-                    borderRadius="4px"
-                    overflow="hidden"
-                    marginTop={2}
-                  >
-                    <Box
-                      background="primary600"
-                      height="100%"
-                      width={`${guestData.invitedByBride > 0 ? Math.round((guestData.confirmedByBride / guestData.invitedByBride) * 100) : 0}%`}
-                      style={{ transition: "width 0.5s ease" }}
-                    />
-                  </Box>
-                </Box>
-              </Card>
-            </Box>
-
-            <Box width="calc(50% - 8px)" marginBottom={2}>
-              <Card padding={3}>
-                <Typography variant="delta" fontWeight="bold" textColor="secondary600" paddingBottom={2}>
-                  Dashboard del Novio
-                </Typography>
-                <Flex gap={2} wrap="wrap">
-                  <Box width="calc(33% - 4px)">
-                    <StatCard
-                      title="Total Invitados"
-                      value={guestData.invitedByGroom}
-                      description={`${Math.round((guestData.invitedByGroom / guestData.total) * 100)}% del total`}
-                      color="secondary600"
-                    />
-                  </Box>
-                  <Box width="calc(33% - 4px)">
-                    <StatCard
-                      title="Confirmados"
-                      value={guestData.confirmedByGroom}
-                      description={`${guestData.invitedByGroom > 0 ? Math.round((guestData.confirmedByGroom / guestData.invitedByGroom) * 100) : 0}% de tasa de confirmación`}
-                      color="secondary600"
-                    />
-                  </Box>
-                  <Box width="calc(33% - 4px)">
-                    <StatCard
-                      title="Personas"
-                      value={guestData.confirmedGuestsByGroom}
-                      description="Asistentes confirmados"
-                      color="secondary600"
-                    />
-                  </Box>
-                </Flex>
-                <Box paddingTop={2}>
-                  <Box
-                    background="neutral200"
-                    height="8px"
-                    borderRadius="4px"
-                    overflow="hidden"
-                    marginTop={2}
-                  >
-                    <Box
-                      background="secondary600"
-                      height="100%"
-                      width={`${guestData.invitedByGroom > 0 ? Math.round((guestData.confirmedByGroom / guestData.invitedByGroom) * 100) : 0}%`}
-                      style={{ transition: "width 0.5s ease" }}
-                    />
-                  </Box>
-                </Box>
-              </Card>
-            </Box>
-          </Flex>
-        </Box>
-
-        <Box paddingBottom={3}>
-          <Typography variant="epsilon" fontWeight="bold" paddingBottom={2}>
-            Progreso de Confirmaciones
-          </Typography>
-
-          <Card padding={2}>
-            <Flex gap={2} wrap="wrap">
-              <Box width="calc(33.33% - 8px)">
-                <Flex justifyContent="space-between" paddingBottom={1}>
-                  <Typography
-                    variant="pi"
-                    fontWeight="bold"
-                    style={{ fontSize: "0.75rem" }}
-                  >
-                    Confirmados
-                  </Typography>
-                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
-                    {confirmedPercentage}%
-                  </Typography>
-                </Flex>
-                <Box
-                  background="neutral200"
-                  height="8px"
-                  borderRadius="4px"
-                  overflow="hidden"
-                >
-                  <Box
-                    background="success600"
-                    height="100%"
-                    width={`${confirmedPercentage}%`}
-                    style={{ transition: "width 0.5s ease" }}
-                  />
-                </Box>
-              </Box>
-
-              <Box width="calc(33.33% - 8px)">
-                <Flex justifyContent="space-between" paddingBottom={1}>
-                  <Typography
-                    variant="pi"
-                    fontWeight="bold"
-                    style={{ fontSize: "0.75rem" }}
-                  >
-                    Rechazados
-                  </Typography>
-                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
-                    {declinedPercentage}%
-                  </Typography>
-                </Flex>
-                <Box
-                  background="neutral200"
-                  height="8px"
-                  borderRadius="4px"
-                  overflow="hidden"
-                >
-                  <Box
-                    background="danger600"
-                    height="100%"
-                    width={`${declinedPercentage}%`}
-                    style={{ transition: "width 0.5s ease" }}
-                  />
-                </Box>
-              </Box>
-
-              <Box width="calc(33.33% - 8px)">
-                <Flex justifyContent="space-between" paddingBottom={1}>
-                  <Typography
-                    variant="pi"
-                    fontWeight="bold"
-                    style={{ fontSize: "0.75rem" }}
-                  >
-                    Pendientes
-                  </Typography>
-                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
-                    {unknownPercentage}%
-                  </Typography>
-                </Flex>
-                <Box
-                  background="neutral200"
-                  height="8px"
-                  borderRadius="4px"
-                  overflow="hidden"
-                >
-                  <Box
-                    background="warning600"
-                    height="100%"
-                    width={`${unknownPercentage}%`}
-                    style={{ transition: "width 0.5s ease" }}
-                  />
-                </Box>
-              </Box>
-            </Flex>
-          </Card>
-        </Box>
-
-        <Box paddingBottom={3}>
-          <Flex
-            justifyContent="space-between"
-            alignItems="flex-start"
-            paddingBottom={2}
-          >
-            <Typography variant="epsilon" fontWeight="bold">
-              Lista de Invitados
-            </Typography>
-            <Flex
-              gap={2}
-              alignItems="center"
-              wrap="wrap"
-              style={{ maxWidth: "70%" }}
-            >
-              <Flex gap={1}>
-                <Button
-                  onClick={triggerFileUpload}
-                  variant="secondary"
-                  size="S"
-                  disabled={isUploading}
-                >
-                  {isUploading ? "Subiendo..." : "Importar CSV"}
-                </Button>
-                <Button onClick={downloadSampleCSV} variant="tertiary" size="S">
-                  Descargar Ejemplo
-                </Button>
-              </Flex>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                style={{ display: "none" }}
-                ref={fileInputRef}
-              />
-              <Box>
-                <Flex gap={1} alignItems="center">
-                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
-                    Buscar:
-                  </Typography>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Nombre o teléfono"
-                    style={{
-                      padding: "4px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                      backgroundColor: "#fff",
-                      fontSize: "0.75rem",
-                      width: "120px",
-                    }}
-                  />
-                </Flex>
-              </Box>
-              <Box>
-                <Flex gap={1} alignItems="center">
-                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
-                    Estado:
-                  </Typography>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{
-                      padding: "4px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                      backgroundColor: "#fff",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    <option value="all">Todos</option>
-                    <option value="unknown">Sin responder</option>
-                    <option value="yes">Confirmados</option>
-                    <option value="no">Rechazados</option>
-                  </select>
-                </Flex>
-              </Box>
-              <Box>
-                <Flex gap={1} alignItems="center">
-                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
-                    Invitado de:
-                  </Typography>
-                  <select
-                    value={invitedByFilter}
-                    onChange={(e) => setInvitedByFilter(e.target.value)}
-                    style={{
-                      padding: "4px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                      backgroundColor: "#fff",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    <option value="all">Todos</option>
-                    <option value="Bride">Novia</option>
-                    <option value="Groom">Novio</option>
-                  </select>
-                </Flex>
-              </Box>
-              <Button
-                variant="success"
-                onClick={sendWhatsAppInvitations}
-                disabled={
-                  Object.keys(selectedGuests).filter((id) => selectedGuests[id])
-                    .length === 0
-                }
-                size="S"
-              >
-                Enviar WhatsApp
-              </Button>
-            </Flex>
-          </Flex>
-
-          <Table
-            colCount={7}
-            rowCount={
-              guests.filter((guest) => {
-                const matchesStatus =
-                  statusFilter === "all"
-                    ? true
-                    : guest.confirmed === statusFilter;
-                const matchesInvitedBy =
-                  invitedByFilter === "all"
-                    ? true
-                    : guest.invitedBy === invitedByFilter;
-                const matchesSearch =
-                  searchQuery === ""
-                    ? true
-                    : (guest.name &&
-                        guest.name
-                          .toLowerCase()
-                          .includes(searchQuery.toLowerCase())) ||
-                      (guest.phone && guest.phone.includes(searchQuery));
-                return matchesStatus && matchesInvitedBy && matchesSearch;
-              }).length + 1
-            }
-          >
-            <Thead>
-              <Tr>
-                <Th>
-                  <Checkbox
-                    checked={
-                      guests.length > 0 &&
-                      guests.every((guest) => selectedGuests[guest.documentId])
-                    }
-                    onClick={handleSelectAll}
-                  >
-                    <VisuallyHidden>Seleccionar todos</VisuallyHidden>
-                  </Checkbox>
-                </Th>
-                <Th>
-                  <Typography variant="sigma">Nombre</Typography>
-                </Th>
-                <Th>
-                  <Typography variant="sigma">Teléfono</Typography>
-                </Th>
-                <Th>
-                  <Typography variant="sigma">Confirmación</Typography>
-                </Th>
-                <Th>
-                  <Typography variant="sigma">Invitados Máximos</Typography>
-                </Th>
-                <Th>
-                  <Typography variant="sigma">Invitados Confirmados</Typography>
-                </Th>
-                <Th>
-                  <Typography variant="sigma">Invitado Por</Typography>
-                </Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {guests
-                .filter((guest) => {
-                  const matchesStatus =
-                    statusFilter === "all"
-                      ? true
-                      : guest.confirmed === statusFilter;
-                  const matchesInvitedBy =
-                    invitedByFilter === "all"
-                      ? true
-                      : guest.invitedBy === invitedByFilter;
-                  const matchesSearch =
-                    searchQuery === ""
-                      ? true
-                      : (guest.name &&
-                          guest.name
-                            .toLowerCase()
-                            .includes(searchQuery.toLowerCase())) ||
-                        (guest.phone && guest.phone.includes(searchQuery));
-                  return matchesStatus && matchesInvitedBy && matchesSearch;
-                })
-                .map((guest) => (
-                  <Tr key={guest.documentId}>
-                    <Td>
-                      <Checkbox
-                        checked={Boolean(selectedGuests[guest.documentId])}
-                        onClick={() => handleSelectGuest(guest.documentId)}
-                      >
-                        <VisuallyHidden>
-                          Seleccionar {guest.name}
-                        </VisuallyHidden>
-                      </Checkbox>
-                    </Td>
-                    <Td>
-                      <Typography>{guest.name}</Typography>
-                    </Td>
-                    <Td>
-                      <Typography>{guest.phone || "-"}</Typography>
-                    </Td>
-                    <Td>
-                      <Typography>
-                        {guest.confirmed === "yes" && "Confirmado"}
-                        {guest.confirmed === "no" && "Rechazado"}
-                        {(guest.confirmed === "unknown" || !guest.confirmed) &&
-                          "Pendiente"}
-                      </Typography>
-                    </Td>
-                    <Td>
-                      <Typography>{guest.maxGuests}</Typography>
-                    </Td>
-                    <Td>
-                      <Typography>
-                        {guest.confirmedGuests ||
-                          (guest.confirmed === "yes" ? guest.maxGuests : 0)}
-                      </Typography>
-                    </Td>
-                    <Td>
-                      <Typography>
-                        {guest.invitedBy === "Groom"
-                          ? "Novio"
-                          : guest.invitedBy === "Bride"
-                            ? "Novia"
-                            : guest.invitedBy || "-"}
-                      </Typography>
-                    </Td>
-                  </Tr>
-                ))}
-            </Tbody>
-          </Table>
-        </Box>
+        {/* Componentes del Dashboard */}
+        <GuestSummary guestData={guestData} />
+        
+        <BrideGroomDashboards guestData={guestData} />
+        
+        <ConfirmationProgress 
+          confirmedPercentage={confirmedPercentage}
+          declinedPercentage={declinedPercentage}
+          unknownPercentage={unknownPercentage}
+        />
+        
+        <GuestList
+          guests={guests}
+          selectedGuests={selectedGuests}
+          handleSelectGuest={handleSelectGuest}
+          handleSelectAll={handleSelectAll}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          invitedByFilter={invitedByFilter}
+          setInvitedByFilter={setInvitedByFilter}
+          triggerFileUpload={triggerFileUpload}
+          isUploading={isUploading}
+          downloadSampleCSV={downloadSampleCSV}
+          sendWhatsAppInvitations={sendWhatsAppInvitations}
+          fileInputRef={fileInputRef}
+          handleFileUpload={handleFileUpload}
+          onAddGuest={handleAddGuest}
+          onEditGuest={handleEditGuest}
+          onDeleteGuest={handleDeleteGuest}
+        />
       </Box>
 
-      {/* CSV Upload Results Modal */}
-      {showUploadDialog && uploadResults && (
-        <Portal>
-          <Box
-            background="neutral0"
-            padding={4}
-            shadow="tableShadow"
-            style={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 1000,
-              width: "80%",
-              maxWidth: "800px",
-              maxHeight: "80vh",
-              overflow: "auto",
-              borderRadius: "4px",
-            }}
-          >
-            <Box padding={4} style={{ borderBottom: "1px solid #eee" }}>
-              <Flex justifyContent="space-between" alignItems="center">
-                <Typography variant="beta">
-                  Resultados de la importación
-                </Typography>
-                <Button variant="tertiary" onClick={closeUploadDialog}>
-                  ×
-                </Button>
-              </Flex>
-            </Box>
-
-            <Box padding={4}>
-              <Typography variant="delta" paddingBottom={2}>
-                Estadísticas
-              </Typography>
-              <Box padding={2} background="neutral100" borderRadius="4px">
-                <Flex direction="column" gap={2}>
-                  <Typography>
-                    Total de registros: {uploadResults.total}
-                  </Typography>
-                  <Typography>
-                    Invitados creados: {uploadResults.created}
-                  </Typography>
-                  <Typography>
-                    Duplicados encontrados: {uploadResults.duplicates.length}
-                  </Typography>
-                  <Typography>
-                    Errores: {uploadResults.errors.length}
-                  </Typography>
-                </Flex>
-              </Box>
-            </Box>
-
-            {uploadResults.duplicates.length > 0 && (
-              <Box paddingBottom={4}>
-                <Typography variant="delta" paddingBottom={2}>
-                  Duplicados
-                </Typography>
-                <Box
-                  padding={2}
-                  background="neutral100"
-                  borderRadius="4px"
-                  style={{ maxHeight: "200px", overflow: "auto" }}
-                >
-                  {uploadResults.duplicates.map((duplicate, index) => (
-                    <Box
-                      key={index}
-                      padding={2}
-                      style={{ borderBottom: "1px solid #eee" }}
-                    >
-                      <Typography fontWeight="bold">
-                        {duplicate.row.name}
-                      </Typography>
-                      <Typography variant="pi">
-                        Teléfono: {duplicate.row.phone} - Ya existe con ID:{" "}
-                        {duplicate.existing.id}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            )}
-
-            {uploadResults.errors.length > 0 && (
-              <Box paddingBottom={4}>
-                <Typography variant="delta" paddingBottom={2}>
-                  Errores
-                </Typography>
-                <Box
-                  padding={2}
-                  background="neutral100"
-                  borderRadius="4px"
-                  style={{ maxHeight: "200px", overflow: "auto" }}
-                >
-                  {uploadResults.errors.map((error, index) => (
-                    <Box
-                      key={index}
-                      padding={2}
-                      style={{ borderBottom: "1px solid #eee" }}
-                    >
-                      <Typography fontWeight="bold">
-                        {error.row.name || `Fila ${index + 1}`}
-                      </Typography>
-                      <Typography variant="pi" textColor="danger600">
-                        Error: {error.error}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            )}
-
-            <Flex justifyContent="flex-end">
-              <Button onClick={closeUploadDialog}>Cerrar</Button>
-            </Flex>
-          </Box>
-          <Box
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              zIndex: 999,
-            }}
-            onClick={closeUploadDialog}
-          />
-        </Portal>
+      {/* Modal de resultados de importación */}
+      {showUploadDialog && (
+        <UploadResultsModal
+          uploadResults={uploadResults}
+          closeUploadDialog={closeUploadDialog}
+        />
       )}
+
+      {/* Modal de agregar/editar invitados */}
+      <GuestFormModal
+        isVisible={showGuestFormModal}
+        onClose={() => setShowGuestFormModal(false)}
+        onSubmit={handleSubmitGuestForm}
+        initialData={editingGuest}
+        isSubmitting={isSubmittingGuest}
+      />
     </>
   );
 };

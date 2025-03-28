@@ -17,6 +17,7 @@ import {
   VisuallyHidden,
   Alert,
   Portal,
+  Dialog,
 } from "@strapi/design-system";
 import { useFetchClient, useAuth } from "@strapi/strapi/admin";
 import axios from "axios";
@@ -24,16 +25,20 @@ import axios from "axios";
 
 const StatCard = ({ title, value, description, color = "neutral800" }) => {
   return (
-    <Card padding={4} style={{ height: "100%" }}>
-      <Flex direction="column" alignItems="flex-start" gap={3}>
-        <Typography variant="delta" textColor={color}>
+    <Card padding={2} style={{ height: "100%" }}>
+      <Flex direction="column" alignItems="flex-start" gap={1}>
+        <Typography variant="pi" fontWeight="bold" textColor={color}>
           {title}
         </Typography>
-        <Typography variant="alpha" fontWeight="bold" textColor={color}>
+        <Typography variant="delta" fontWeight="bold" textColor={color}>
           {value}
         </Typography>
         {description && (
-          <Typography variant="epsilon" textColor="neutral600">
+          <Typography
+            variant="pi"
+            textColor="neutral600"
+            style={{ fontSize: "0.75rem" }}
+          >
             {description}
           </Typography>
         )}
@@ -54,7 +59,17 @@ const GuestDashboard = () => {
     unknown: 0,
     confirmedGuests: 0,
     maxGuests: 0,
+    invitedByBride: 0,
+    invitedByGroom: 0,
+    totalMessages: 0,
   });
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [invitedByFilter, setInvitedByFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploadResults, setUploadResults] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
   // WhatsApp API integration
   const [qrStatus, setQrStatus] = useState({
     clientReady: false,
@@ -70,6 +85,7 @@ const GuestDashboard = () => {
 
   // Use the authenticated fetch client from Strapi
   const { get, post } = useFetchClient();
+  const fetchClient = useFetchClient();
 
   const fetchGuestData = async () => {
     try {
@@ -113,6 +129,17 @@ const GuestDashboard = () => {
       // Calculate maximum possible guests
       const maxGuests = guests.reduce((sum, guest) => sum + guest.maxGuests, 0);
 
+      // Calculate guests invited by bride and groom
+      const invitedByBride = guests.filter(
+        (guest) => guest.invitedBy === "Bride"
+      ).length;
+      const invitedByGroom = guests.filter(
+        (guest) => guest.invitedBy === "Groom"
+      ).length;
+
+      // Set total messages to 0 since message field has been removed
+      const totalMessages = 0;
+
       setGuestData({
         total,
         confirmed,
@@ -120,6 +147,9 @@ const GuestDashboard = () => {
         unknown,
         confirmedGuests,
         maxGuests,
+        invitedByBride,
+        invitedByGroom,
+        totalMessages,
       });
     } catch (err) {
       console.error("Error fetching guest data:", err);
@@ -139,7 +169,9 @@ const GuestDashboard = () => {
 
   // Handle select all guests
   const handleSelectAll = () => {
-    const allSelected = guests.every((guest) => selectedGuests[guest.documentId]);
+    const allSelected = guests.every(
+      (guest) => selectedGuests[guest.documentId]
+    );
 
     if (allSelected) {
       // If all are selected, unselect all
@@ -163,26 +195,26 @@ const GuestDashboard = () => {
     try {
       // Set a timestamp to prevent caching
       const timestamp = new Date().getTime();
-      
+
       // Create a data URL for the QR code using a proxy approach
       try {
         // Try to get the QR image using our proxy function
         const response = await axios({
-          method: 'GET',
+          method: "GET",
           url: `${whatsappApiUrl}/qr/image?t=${timestamp}`,
-          responseType: 'blob',
+          responseType: "blob",
           headers: {
-            'Referrer-Policy': 'no-referrer',
-            'Origin': window.location.origin,
-            'mode': 'cors',
-            'Authorization': `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, '')}`
-          }
+            "Referrer-Policy": "no-referrer",
+            Origin: window.location.origin,
+            mode: "cors",
+            Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+          },
         });
-        
+
         // Create a blob URL from the response
-        const blob = new Blob([response.data], { type: 'image/png' });
+        const blob = new Blob([response.data], { type: "image/png" });
         const url = URL.createObjectURL(blob);
-        
+
         // Set the image source
         if (qrImageRef.current) {
           qrImageRef.current.src = url;
@@ -190,21 +222,23 @@ const GuestDashboard = () => {
         }
       } catch (err) {
         console.error("Error loading QR image via proxy:", err);
-        
+
         // Fallback: try loading the image directly
         const imageUrl = `${whatsappApiUrl}/qr/image?t=${timestamp}`;
         console.log("Trying direct image load from:", imageUrl);
-        
+
         if (qrImageRef.current) {
           qrImageRef.current.src = imageUrl;
-          
+
           qrImageRef.current.onload = () => {
             console.log("QR image loaded successfully via direct URL");
           };
-          
+
           qrImageRef.current.onerror = () => {
             console.error("Failed to load QR image directly");
-            setWhatsappError("No se pudo cargar el código QR. Intente refrescar la página.");
+            setWhatsappError(
+              "No se pudo cargar el código QR. Intente refrescar la página."
+            );
           };
         }
       }
@@ -216,6 +250,193 @@ const GuestDashboard = () => {
     }
   };
 
+  // Handle CSV file upload
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+
+      // Read the file as text
+      const fileReader = new FileReader();
+
+      fileReader.onload = async (e) => {
+        // Ensure we have a string
+        const csvText = String(e.target.result);
+
+        // Parse CSV to JSON
+        const rows = [];
+        const lines = csvText.split("\n");
+        const headers = lines[0].split(",").map((header) => header.trim());
+
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue; // Skip empty lines
+
+          const values = lines[i].split(",").map((value) => value.trim());
+          const row = {};
+
+          headers.forEach((header, index) => {
+            row[header] = values[index] || "";
+          });
+
+          rows.push(row);
+        }
+
+        // Initialize results object
+        const results = {
+          total: rows.length,
+          created: 0,
+          duplicates: [],
+          errors: [],
+        };
+
+        // Process each row individually
+        for (const row of rows) {
+          try {
+            // Validate required fields
+            if (!row.name) {
+              results.errors.push({ row, error: "Falta el campo nombre" });
+              continue;
+            }
+
+            // Check for duplicates by phone number
+            if (row.phone) {
+              try {
+                // Search for existing guest with same phone number using Content Manager API
+                const { data: existingGuests } = await fetchClient.get(
+                  `/content-manager/collection-types/api::guest.guest?filters[phone][$eq]=${row.phone}&populate=*`
+                );
+
+                if (
+                  existingGuests &&
+                  existingGuests.results &&
+                  existingGuests.results.length > 0
+                ) {
+                  const existingGuest = existingGuests.results[0];
+                  results.duplicates.push({
+                    row,
+                    existing: {
+                      id: existingGuest.id,
+                      name: existingGuest.name,
+                      phone: existingGuest.phone,
+                    },
+                  });
+                  continue;
+                }
+              } catch (error) {
+                console.error("Error checking for duplicates:", error);
+              }
+            }
+
+            // Log the row data for debugging
+            console.log("Row data:", row);
+
+            // Prepare guest data
+            const guestData = {
+              name: row.name.trim(),
+              phone: row.phone ? row.phone.trim() : null,
+              maxGuests: row.maxGuests ? parseInt(row.maxGuests) : 1,
+              confirmedGuests: null,
+              confirmed: "unknown",
+              invitedBy: row.invitedBy ? row.invitedBy.trim() : null,
+              timesSended: 0,
+            };
+
+            // Log the prepared data for debugging
+            console.log("Prepared guest data:", guestData);
+
+            // Create the guest using the Content Manager API
+            const response = await fetchClient.post(
+              "/content-manager/collection-types/api::guest.guest",
+              guestData
+            );
+
+            // Log the response for debugging
+            console.log("Create guest response:", response);
+
+            results.created++;
+          } catch (error) {
+            console.error("Error creating guest:", error);
+            results.errors.push({
+              row,
+              error: error.message || "Error desconocido al crear invitado",
+            });
+          }
+        }
+
+        // Show results
+        setUploadResults(results);
+        setShowUploadDialog(true);
+
+        // Refresh data after successful upload
+        fetchGuestData();
+      };
+
+      fileReader.onerror = () => {
+        alert("Error reading file");
+      };
+
+      fileReader.readAsText(file);
+    } catch (error) {
+      console.error("Error handling file upload:", error);
+      alert(`Error handling file upload: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  // Trigger file input click
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Download sample CSV file
+  const downloadSampleCSV = () => {
+    // Create sample data
+    const sampleData = [
+      {
+        name: "Juan Pérez",
+        phone: "5512345678",
+        maxGuests: "2",
+        invitedBy: "Groom",
+      },
+      {
+        name: "María García",
+        phone: "5587654321",
+        maxGuests: "3",
+        invitedBy: "Bride",
+      },
+    ];
+
+    // Convert to CSV
+    const headers = Object.keys(sampleData[0]).join(",");
+    const rows = sampleData.map((obj) => Object.values(obj).join(","));
+    const csvContent = [headers, ...rows].join("\n");
+
+    // Create blob and download link
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "invitados_ejemplo.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Close upload results dialog
+  const closeUploadDialog = () => {
+    setShowUploadDialog(false);
+    setUploadResults(null);
+  };
 
   // Send WhatsApp invitations to selected guests via API
   const sendWhatsAppInvitations = async () => {
@@ -233,19 +454,19 @@ const GuestDashboard = () => {
 
       // Call the API to send invitations to selected guests using our proxy function
       const response = await axios({
-        method: 'POST',
+        method: "POST",
         url: `${whatsappApiUrl}/sendInvitationsToSpecificGuests`,
         data: {
           documentIds: selectedGuestIds,
         },
         headers: {
-          'Content-Type': 'application/json',
-          'Referrer-Policy': 'no-referrer',
-          'Origin': window.location.origin,
-          'mode': 'cors',
-          'Authorization': `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, '')}`
+          "Content-Type": "application/json",
+          "Referrer-Policy": "no-referrer",
+          Origin: window.location.origin,
+          mode: "cors",
+          Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
         },
-        timeout: 10000 // 10 second timeout
+        timeout: 10000, // 10 second timeout
       });
 
       // With axios, the data is already parsed
@@ -326,251 +547,565 @@ const GuestDashboard = () => {
   }
 
   return (
-    <Box padding={8} background="neutral100">
-      <Flex
-        justifyContent="space-between"
-        alignItems="center"
-        paddingBottom={4}
-      >
-        <Typography variant="alpha">Dashboard de Invitados</Typography>
-        <Button onClick={fetchGuestData}>Refrescar datos</Button>
-      </Flex>
-
-      <Typography variant="epsilon" paddingBottom={6}>
-        Este dashboard muestra estadísticas y gráficos sobre los invitados a la
-        boda.
-      </Typography>
-
-      <Box paddingBottom={6}>
-        <Typography variant="beta" paddingBottom={4}>
-          Resumen
-        </Typography>
-
-        <Flex gap={4} wrap="wrap">
-          <Box width="45%" marginBottom={4}>
-            <StatCard
-              title="Total de Invitaciones"
-              value={guestData.total}
-              description="Número total de invitaciones enviadas"
-            />
-          </Box>
-
-          <Box width="45%" marginBottom={4}>
-            <StatCard
-              title="Asistencia Confirmada"
-              value={`${guestData.confirmedGuests} / ${guestData.maxGuests}`}
-              description={`${attendancePercentage}% de asistencia esperada`}
-              color="success600"
-            />
-          </Box>
-        </Flex>
-      </Box>
-
-      <Box paddingBottom={6}>
-        <Typography variant="beta" paddingBottom={4}>
-          Estado de Confirmaciones
-        </Typography>
-
-        <Flex gap={4} wrap="wrap">
-          <Box width="30%" marginBottom={4}>
-            <StatCard
-              title="Confirmados"
-              value={`${guestData.confirmed} (${confirmedPercentage}%)`}
-              description="Invitados que han confirmado su asistencia"
-              color="success600"
-            />
-          </Box>
-
-          <Box width="30%" marginBottom={4}>
-            <StatCard
-              title="Rechazados"
-              value={`${guestData.declined} (${declinedPercentage}%)`}
-              description="Invitados que han declinado la invitación"
-              color="danger600"
-            />
-          </Box>
-
-          <Box width="30%" marginBottom={4}>
-            <StatCard
-              title="Pendientes"
-              value={`${guestData.unknown} (${unknownPercentage}%)`}
-              description="Invitados que aún no han respondido"
-              color="warning600"
-            />
-          </Box>
-        </Flex>
-      </Box>
-
-      <Box paddingBottom={6}>
-        <Typography variant="beta" paddingBottom={4}>
-          Progreso de Confirmaciones
-        </Typography>
-
-        <Card padding={4}>
-          <Box paddingBottom={4}>
-            <Flex justifyContent="space-between" paddingBottom={2}>
-              <Typography variant="pi" fontWeight="bold">
-                Confirmados
-              </Typography>
-              <Typography variant="pi">{confirmedPercentage}%</Typography>
-            </Flex>
-            <Box
-              background="neutral200"
-              height="12px"
-              borderRadius="4px"
-              overflow="hidden"
-            >
-              <Box
-                background="success600"
-                height="100%"
-                width={`${confirmedPercentage}%`}
-                style={{ transition: "width 0.5s ease" }}
-              />
-            </Box>
-          </Box>
-
-          <Box paddingBottom={4}>
-            <Flex justifyContent="space-between" paddingBottom={2}>
-              <Typography variant="pi" fontWeight="bold">
-                Rechazados
-              </Typography>
-              <Typography variant="pi">{declinedPercentage}%</Typography>
-            </Flex>
-            <Box
-              background="neutral200"
-              height="12px"
-              borderRadius="4px"
-              overflow="hidden"
-            >
-              <Box
-                background="danger600"
-                height="100%"
-                width={`${declinedPercentage}%`}
-                style={{ transition: "width 0.5s ease" }}
-              />
-            </Box>
-          </Box>
-
-          <Box>
-            <Flex justifyContent="space-between" paddingBottom={2}>
-              <Typography variant="pi" fontWeight="bold">
-                Pendientes
-              </Typography>
-              <Typography variant="pi">{unknownPercentage}%</Typography>
-            </Flex>
-            <Box
-              background="neutral200"
-              height="12px"
-              borderRadius="4px"
-              overflow="hidden"
-            >
-              <Box
-                background="warning600"
-                height="100%"
-                width={`${unknownPercentage}%`}
-                style={{ transition: "width 0.5s ease" }}
-              />
-            </Box>
-          </Box>
-        </Card>
-      </Box>
-
-      <Box paddingBottom={6}>
+    <>
+      <Box padding={4} background="neutral100">
         <Flex
           justifyContent="space-between"
           alignItems="center"
-          paddingBottom={4}
+          paddingBottom={2}
         >
-          <Typography variant="beta">Lista de Invitados</Typography>
-          <Button
-            variant="success"
-            onClick={sendWhatsAppInvitations}
-            disabled={
-              Object.keys(selectedGuests).filter((id) => selectedGuests[id])
-                .length === 0
-            }
-          >
-            Enviar Invitación por WhatsApp
+          <Box>
+            <Typography variant="beta">Dashboard de Invitados</Typography>
+            <Typography variant="pi" textColor="neutral600">
+              Estadísticas y gráficos sobre los invitados a la boda
+            </Typography>
+          </Box>
+          <Button onClick={fetchGuestData} size="S">
+            Refrescar
           </Button>
         </Flex>
 
-        <Table colCount={7} rowCount={guests.length + 1}>
-          <Thead>
-            <Tr>
-              <Th>
-                <Checkbox
-                  checked={
-                    guests.length > 0 &&
-                    guests.every((guest) => selectedGuests[guest.documentId])
-                  }
-                  onClick={handleSelectAll}
-                >
-                  <VisuallyHidden>Seleccionar todos</VisuallyHidden>
-                </Checkbox>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Nombre</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Teléfono</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Email</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Confirmación</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Invitados Máximos</Typography>
-              </Th>
-              <Th>
-                <Typography variant="sigma">Invitados Confirmados</Typography>
-              </Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {guests.map((guest) => (
-              <Tr key={guest.documentId}>
-                <Td>
-                  <Checkbox
-                    checked={Boolean(selectedGuests[guest.documentId])}
-                    onClick={() => handleSelectGuest(guest.documentId)}
+        <Box paddingBottom={3}>
+          <Typography variant="epsilon" fontWeight="bold" paddingBottom={2}>
+            Resumen y Distribución
+          </Typography>
+
+          <Flex gap={2} wrap="wrap">
+            <Box width="calc(20% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Total Invitaciones"
+                value={guestData.total}
+                description="Total enviadas"
+              />
+            </Box>
+
+            <Box width="calc(20% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Asistencia"
+                value={`${guestData.confirmedGuests}/${guestData.maxGuests}`}
+                description={`${attendancePercentage}% esperada`}
+                color="success600"
+              />
+            </Box>
+
+            <Box width="calc(20% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Confirmados"
+                value={`${guestData.confirmed} (${confirmedPercentage}%)`}
+                description="Han confirmado"
+                color="success600"
+              />
+            </Box>
+
+            <Box width="calc(20% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Rechazados"
+                value={`${guestData.declined} (${declinedPercentage}%)`}
+                description="Han declinado"
+                color="danger600"
+              />
+            </Box>
+
+            <Box width="calc(20% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Pendientes"
+                value={`${guestData.unknown} (${unknownPercentage}%)`}
+                description="Sin responder"
+                color="warning600"
+              />
+            </Box>
+          </Flex>
+
+          <Flex gap={2} wrap="wrap" paddingTop={2}>
+            <Box width="calc(50% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Invitados por la Novia"
+                value={guestData.invitedByBride}
+                description={`${Math.round((guestData.invitedByBride / guestData.total) * 100)}% del total`}
+                color="primary600"
+              />
+            </Box>
+
+            <Box width="calc(50% - 8px)" marginBottom={2}>
+              <StatCard
+                title="Invitados por el Novio"
+                value={guestData.invitedByGroom}
+                description={`${Math.round((guestData.invitedByGroom / guestData.total) * 100)}% del total`}
+                color="secondary600"
+              />
+            </Box>
+          </Flex>
+        </Box>
+
+        <Box paddingBottom={3}>
+          <Typography variant="epsilon" fontWeight="bold" paddingBottom={2}>
+            Progreso de Confirmaciones
+          </Typography>
+
+          <Card padding={2}>
+            <Flex gap={2} wrap="wrap">
+              <Box width="calc(33.33% - 8px)">
+                <Flex justifyContent="space-between" paddingBottom={1}>
+                  <Typography
+                    variant="pi"
+                    fontWeight="bold"
+                    style={{ fontSize: "0.75rem" }}
                   >
-                    <VisuallyHidden>Seleccionar {guest.name}</VisuallyHidden>
+                    Confirmados
+                  </Typography>
+                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
+                    {confirmedPercentage}%
+                  </Typography>
+                </Flex>
+                <Box
+                  background="neutral200"
+                  height="8px"
+                  borderRadius="4px"
+                  overflow="hidden"
+                >
+                  <Box
+                    background="success600"
+                    height="100%"
+                    width={`${confirmedPercentage}%`}
+                    style={{ transition: "width 0.5s ease" }}
+                  />
+                </Box>
+              </Box>
+
+              <Box width="calc(33.33% - 8px)">
+                <Flex justifyContent="space-between" paddingBottom={1}>
+                  <Typography
+                    variant="pi"
+                    fontWeight="bold"
+                    style={{ fontSize: "0.75rem" }}
+                  >
+                    Rechazados
+                  </Typography>
+                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
+                    {declinedPercentage}%
+                  </Typography>
+                </Flex>
+                <Box
+                  background="neutral200"
+                  height="8px"
+                  borderRadius="4px"
+                  overflow="hidden"
+                >
+                  <Box
+                    background="danger600"
+                    height="100%"
+                    width={`${declinedPercentage}%`}
+                    style={{ transition: "width 0.5s ease" }}
+                  />
+                </Box>
+              </Box>
+
+              <Box width="calc(33.33% - 8px)">
+                <Flex justifyContent="space-between" paddingBottom={1}>
+                  <Typography
+                    variant="pi"
+                    fontWeight="bold"
+                    style={{ fontSize: "0.75rem" }}
+                  >
+                    Pendientes
+                  </Typography>
+                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
+                    {unknownPercentage}%
+                  </Typography>
+                </Flex>
+                <Box
+                  background="neutral200"
+                  height="8px"
+                  borderRadius="4px"
+                  overflow="hidden"
+                >
+                  <Box
+                    background="warning600"
+                    height="100%"
+                    width={`${unknownPercentage}%`}
+                    style={{ transition: "width 0.5s ease" }}
+                  />
+                </Box>
+              </Box>
+            </Flex>
+          </Card>
+        </Box>
+
+        <Box paddingBottom={3}>
+          <Flex
+            justifyContent="space-between"
+            alignItems="flex-start"
+            paddingBottom={2}
+          >
+            <Typography variant="epsilon" fontWeight="bold">
+              Lista de Invitados
+            </Typography>
+            <Flex
+              gap={2}
+              alignItems="center"
+              wrap="wrap"
+              style={{ maxWidth: "70%" }}
+            >
+              <Flex gap={1}>
+                <Button
+                  onClick={triggerFileUpload}
+                  variant="secondary"
+                  size="S"
+                  disabled={isUploading}
+                >
+                  {isUploading ? "Subiendo..." : "Importar CSV"}
+                </Button>
+                <Button onClick={downloadSampleCSV} variant="tertiary" size="S">
+                  Descargar Ejemplo
+                </Button>
+              </Flex>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                style={{ display: "none" }}
+                ref={fileInputRef}
+              />
+              <Box>
+                <Flex gap={1} alignItems="center">
+                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
+                    Buscar:
+                  </Typography>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Nombre o teléfono"
+                    style={{
+                      padding: "4px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                      backgroundColor: "#fff",
+                      fontSize: "0.75rem",
+                      width: "120px",
+                    }}
+                  />
+                </Flex>
+              </Box>
+              <Box>
+                <Flex gap={1} alignItems="center">
+                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
+                    Estado:
+                  </Typography>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    style={{
+                      padding: "4px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                      backgroundColor: "#fff",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    <option value="all">Todos</option>
+                    <option value="unknown">Sin responder</option>
+                    <option value="yes">Confirmados</option>
+                    <option value="no">Rechazados</option>
+                  </select>
+                </Flex>
+              </Box>
+              <Box>
+                <Flex gap={1} alignItems="center">
+                  <Typography variant="pi" style={{ fontSize: "0.75rem" }}>
+                    Invitado de:
+                  </Typography>
+                  <select
+                    value={invitedByFilter}
+                    onChange={(e) => setInvitedByFilter(e.target.value)}
+                    style={{
+                      padding: "4px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                      backgroundColor: "#fff",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    <option value="all">Todos</option>
+                    <option value="Bride">Novia</option>
+                    <option value="Groom">Novio</option>
+                  </select>
+                </Flex>
+              </Box>
+              <Button
+                variant="success"
+                onClick={sendWhatsAppInvitations}
+                disabled={
+                  Object.keys(selectedGuests).filter((id) => selectedGuests[id])
+                    .length === 0
+                }
+                size="S"
+              >
+                Enviar WhatsApp
+              </Button>
+            </Flex>
+          </Flex>
+
+          <Table
+            colCount={7}
+            rowCount={
+              guests.filter((guest) => {
+                const matchesStatus =
+                  statusFilter === "all"
+                    ? true
+                    : guest.confirmed === statusFilter;
+                const matchesInvitedBy =
+                  invitedByFilter === "all"
+                    ? true
+                    : guest.invitedBy === invitedByFilter;
+                const matchesSearch =
+                  searchQuery === ""
+                    ? true
+                    : (guest.name &&
+                        guest.name
+                          .toLowerCase()
+                          .includes(searchQuery.toLowerCase())) ||
+                      (guest.phone && guest.phone.includes(searchQuery));
+                return matchesStatus && matchesInvitedBy && matchesSearch;
+              }).length + 1
+            }
+          >
+            <Thead>
+              <Tr>
+                <Th>
+                  <Checkbox
+                    checked={
+                      guests.length > 0 &&
+                      guests.every((guest) => selectedGuests[guest.documentId])
+                    }
+                    onClick={handleSelectAll}
+                  >
+                    <VisuallyHidden>Seleccionar todos</VisuallyHidden>
                   </Checkbox>
-                </Td>
-                <Td>
-                  <Typography>{guest.name}</Typography>
-                </Td>
-                <Td>
-                  <Typography>{guest.phone || "-"}</Typography>
-                </Td>
-                <Td>
-                  <Typography>{guest.email || "-"}</Typography>
-                </Td>
-                <Td>
-                  <Typography>
-                    {guest.confirmed === "yes" && "Confirmado"}
-                    {guest.confirmed === "no" && "Rechazado"}
-                    {(guest.confirmed === "unknown" || !guest.confirmed) &&
-                      "Pendiente"}
-                  </Typography>
-                </Td>
-                <Td>
-                  <Typography>{guest.maxGuests}</Typography>
-                </Td>
-                <Td>
-                  <Typography>
-                    {guest.confirmedGuests ||
-                      (guest.confirmed === "yes" ? guest.maxGuests : 0)}
-                  </Typography>
-                </Td>
+                </Th>
+                <Th>
+                  <Typography variant="sigma">Nombre</Typography>
+                </Th>
+                <Th>
+                  <Typography variant="sigma">Teléfono</Typography>
+                </Th>
+                <Th>
+                  <Typography variant="sigma">Confirmación</Typography>
+                </Th>
+                <Th>
+                  <Typography variant="sigma">Invitados Máximos</Typography>
+                </Th>
+                <Th>
+                  <Typography variant="sigma">Invitados Confirmados</Typography>
+                </Th>
+                <Th>
+                  <Typography variant="sigma">Invitado Por</Typography>
+                </Th>
               </Tr>
-            ))}
-          </Tbody>
-        </Table>
+            </Thead>
+            <Tbody>
+              {guests
+                .filter((guest) => {
+                  const matchesStatus =
+                    statusFilter === "all"
+                      ? true
+                      : guest.confirmed === statusFilter;
+                  const matchesInvitedBy =
+                    invitedByFilter === "all"
+                      ? true
+                      : guest.invitedBy === invitedByFilter;
+                  const matchesSearch =
+                    searchQuery === ""
+                      ? true
+                      : (guest.name &&
+                          guest.name
+                            .toLowerCase()
+                            .includes(searchQuery.toLowerCase())) ||
+                        (guest.phone && guest.phone.includes(searchQuery));
+                  return matchesStatus && matchesInvitedBy && matchesSearch;
+                })
+                .map((guest) => (
+                  <Tr key={guest.documentId}>
+                    <Td>
+                      <Checkbox
+                        checked={Boolean(selectedGuests[guest.documentId])}
+                        onClick={() => handleSelectGuest(guest.documentId)}
+                      >
+                        <VisuallyHidden>
+                          Seleccionar {guest.name}
+                        </VisuallyHidden>
+                      </Checkbox>
+                    </Td>
+                    <Td>
+                      <Typography>{guest.name}</Typography>
+                    </Td>
+                    <Td>
+                      <Typography>{guest.phone || "-"}</Typography>
+                    </Td>
+                    <Td>
+                      <Typography>
+                        {guest.confirmed === "yes" && "Confirmado"}
+                        {guest.confirmed === "no" && "Rechazado"}
+                        {(guest.confirmed === "unknown" || !guest.confirmed) &&
+                          "Pendiente"}
+                      </Typography>
+                    </Td>
+                    <Td>
+                      <Typography>{guest.maxGuests}</Typography>
+                    </Td>
+                    <Td>
+                      <Typography>
+                        {guest.confirmedGuests ||
+                          (guest.confirmed === "yes" ? guest.maxGuests : 0)}
+                      </Typography>
+                    </Td>
+                    <Td>
+                      <Typography>
+                        {guest.invitedBy === "Groom"
+                          ? "Novio"
+                          : guest.invitedBy === "Bride"
+                            ? "Novia"
+                            : guest.invitedBy || "-"}
+                      </Typography>
+                    </Td>
+                  </Tr>
+                ))}
+            </Tbody>
+          </Table>
+        </Box>
       </Box>
-    </Box>
+
+      {/* CSV Upload Results Modal */}
+      {showUploadDialog && uploadResults && (
+        <Portal>
+          <Box
+            background="neutral0"
+            padding={4}
+            shadow="tableShadow"
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 1000,
+              width: "80%",
+              maxWidth: "800px",
+              maxHeight: "80vh",
+              overflow: "auto",
+              borderRadius: "4px",
+            }}
+          >
+            <Box padding={4} style={{ borderBottom: "1px solid #eee" }}>
+              <Flex justifyContent="space-between" alignItems="center">
+                <Typography variant="beta">
+                  Resultados de la importación
+                </Typography>
+                <Button variant="tertiary" onClick={closeUploadDialog}>
+                  ×
+                </Button>
+              </Flex>
+            </Box>
+
+            <Box padding={4}>
+              <Typography variant="delta" paddingBottom={2}>
+                Estadísticas
+              </Typography>
+              <Box padding={2} background="neutral100" borderRadius="4px">
+                <Flex direction="column" gap={2}>
+                  <Typography>
+                    Total de registros: {uploadResults.total}
+                  </Typography>
+                  <Typography>
+                    Invitados creados: {uploadResults.created}
+                  </Typography>
+                  <Typography>
+                    Duplicados encontrados: {uploadResults.duplicates.length}
+                  </Typography>
+                  <Typography>
+                    Errores: {uploadResults.errors.length}
+                  </Typography>
+                </Flex>
+              </Box>
+            </Box>
+
+            {uploadResults.duplicates.length > 0 && (
+              <Box paddingBottom={4}>
+                <Typography variant="delta" paddingBottom={2}>
+                  Duplicados
+                </Typography>
+                <Box
+                  padding={2}
+                  background="neutral100"
+                  borderRadius="4px"
+                  style={{ maxHeight: "200px", overflow: "auto" }}
+                >
+                  {uploadResults.duplicates.map((duplicate, index) => (
+                    <Box
+                      key={index}
+                      padding={2}
+                      style={{ borderBottom: "1px solid #eee" }}
+                    >
+                      <Typography fontWeight="bold">
+                        {duplicate.row.name}
+                      </Typography>
+                      <Typography variant="pi">
+                        Teléfono: {duplicate.row.phone} - Ya existe con ID:{" "}
+                        {duplicate.existing.id}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {uploadResults.errors.length > 0 && (
+              <Box paddingBottom={4}>
+                <Typography variant="delta" paddingBottom={2}>
+                  Errores
+                </Typography>
+                <Box
+                  padding={2}
+                  background="neutral100"
+                  borderRadius="4px"
+                  style={{ maxHeight: "200px", overflow: "auto" }}
+                >
+                  {uploadResults.errors.map((error, index) => (
+                    <Box
+                      key={index}
+                      padding={2}
+                      style={{ borderBottom: "1px solid #eee" }}
+                    >
+                      <Typography fontWeight="bold">
+                        {error.row.name || `Fila ${index + 1}`}
+                      </Typography>
+                      <Typography variant="pi" textColor="danger600">
+                        Error: {error.error}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            <Flex justifyContent="flex-end">
+              <Button onClick={closeUploadDialog}>Cerrar</Button>
+            </Flex>
+          </Box>
+          <Box
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              zIndex: 999,
+            }}
+            onClick={closeUploadDialog}
+          />
+        </Portal>
+      )}
+    </>
   );
 };
 

@@ -32,6 +32,17 @@
     },
     "confirmedGuests": {
       "type": "integer"
+    },
+    "invitedBy": {
+      "type": "enumeration",
+      "enum": [
+        "Groom",
+        "Bride"
+      ]
+    },
+    "timesSended": {
+      "type": "integer",
+      "default": 0
     }
   }
 }

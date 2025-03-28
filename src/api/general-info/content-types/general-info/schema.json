@@ -4,26 +4,33 @@
   "info": {
     "singularName": "general-info",
     "pluralName": "general-infos",
-    "displayName": "General Info"
+    "displayName": "General Info",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
   },
   "attributes": {
-    "groomName": {
-      "type": "string"
-    },
-    "brideName": {
-      "type": "string"
-    },
-    "Address": {
+    "address": {
       "type": "text"
     },
     "date": {
       "type": "datetime"
     },
-    "desscode": {
+    "dresscode": {
       "type": "string"
+    },
+    "invitation": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files"
+      ]
+    },
+    "introduction": {
+      "type": "text"
     }
   }
 }

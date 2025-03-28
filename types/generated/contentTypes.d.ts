@@ -372,6 +372,7 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
 export interface ApiGeneralInfoGeneralInfo extends Struct.SingleTypeSchema {
   collectionName: 'general_infos';
   info: {
+    description: '';
     displayName: 'General Info';
     pluralName: 'general-infos';
     singularName: 'general-info';
@@ -380,14 +381,14 @@ export interface ApiGeneralInfoGeneralInfo extends Struct.SingleTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    Address: Schema.Attribute.Text;
-    brideName: Schema.Attribute.String;
+    address: Schema.Attribute.Text;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     date: Schema.Attribute.DateTime;
-    desscode: Schema.Attribute.String;
-    groomName: Schema.Attribute.String;
+    dresscode: Schema.Attribute.String;
+    introduction: Schema.Attribute.Text;
+    invitation: Schema.Attribute.Media<'images' | 'files'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -419,6 +420,7 @@ export interface ApiGuestGuest extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    invitedBy: Schema.Attribute.Enumeration<['Groom', 'Bride']>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::guest.guest'> &
       Schema.Attribute.Private;
@@ -426,6 +428,7 @@ export interface ApiGuestGuest extends Struct.CollectionTypeSchema {
     name: Schema.Attribute.String;
     phone: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    timesSended: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

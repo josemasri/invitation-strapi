@@ -1,4 +1,6 @@
 import GuestDashboard from './extensions/components/GuestDashboard/index.jsx';
+import { User } from '@strapi/icons';
+
 
 const config = {
   locales: [
@@ -44,7 +46,7 @@ const bootstrap = (app) => {
   // Registrar la página personalizada
   app.addMenuLink({
     to: '/guest-dashboard',
-    icon: 'chart-pie',
+    icon: User,
     intlLabel: {
       id: 'guest-dashboard',
       defaultMessage: 'Dashboard de Invitados',

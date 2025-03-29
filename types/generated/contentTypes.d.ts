@@ -399,6 +399,7 @@ export interface ApiGeneralInfoGeneralInfo extends Struct.SingleTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    urlInvitation: Schema.Attribute.String;
   };
 }
 

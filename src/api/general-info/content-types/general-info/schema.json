@@ -31,6 +31,9 @@
     },
     "introduction": {
       "type": "text"
+    },
+    "urlInvitation": {
+      "type": "string"
     }
   }
 }

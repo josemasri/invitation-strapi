@@ -381,10 +381,12 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    address: Schema.Attribute.Text;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     date: Schema.Attribute.DateTime;
+    googleMapsUrl: Schema.Attribute.String;
     guests: Schema.Attribute.Relation<'oneToMany', 'api::guest.guest'>;
     invitation: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios'

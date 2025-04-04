@@ -45,6 +45,12 @@
     },
     "invitationUrl": {
       "type": "string"
+    },
+    "address": {
+      "type": "text"
+    },
+    "googleMapsUrl": {
+      "type": "string"
     }
   }
 }

@@ -16,6 +16,7 @@ const GuestDashboard = () => {
   const [error, setError] = useState(null);
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEventData, setSelectedEventData] = useState(null);
   const [guests, setGuests] = useState([]);
   const [selectedGuests, setSelectedGuests] = useState({});
   const [guestData, setGuestData] = useState({
@@ -56,7 +57,8 @@ const GuestDashboard = () => {
   const [apiAvailable, setApiAvailable] = useState(false);
   const qrPollInterval = useRef(null);
   const qrImageRef = useRef(null);
-  const whatsappApiUrl = "https://vww4g4ks4kwk4s0koowkw0gg.s1.josemasri.com"; // WhatsApp API URL
+  // WhatsApp API URL will be taken from the selected event's waServiceUrl field
+  const [whatsappApiUrl, setWhatsappApiUrl] = useState("");
 
   // Use the authenticated fetch client from Strapi
   const { get, post } = useFetchClient();
@@ -78,6 +80,9 @@ const GuestDashboard = () => {
       // Select the first event by default if there are events and none is selected
       if (events.length > 0 && !selectedEvent) {
         setSelectedEvent(events[0].id);
+        setSelectedEventData(events[0]);
+        // Set the WhatsApp API URL from the event's waServiceUrl field
+        setWhatsappApiUrl(events[0].waServiceUrl || "");
       }
     } catch (err) {
       console.error("Error fetching events:", err);
@@ -238,6 +243,13 @@ const GuestDashboard = () => {
   // Get QR code image
   const updateQrImage = async () => {
     if (!qrStatus.qrAvailable || qrStatus.clientReady || !qrImageRef.current) {
+      return;
+    }
+
+    // Check if WhatsApp API URL is available
+    if (!whatsappApiUrl) {
+      console.error("WhatsApp API URL is not configured for this event");
+      setWhatsappError("No se ha configurado la URL del servicio de WhatsApp para este evento");
       return;
     }
 
@@ -537,6 +549,12 @@ const GuestDashboard = () => {
       return;
     }
 
+    // Check if WhatsApp API URL is available
+    if (!whatsappApiUrl) {
+      alert("No se ha configurado la URL del servicio de WhatsApp para este evento. Por favor, configura la URL en la configuración del evento.");
+      return;
+    }
+
     try {
       setSendingInvitations(true);
 
@@ -591,6 +609,12 @@ const GuestDashboard = () => {
 
     if (selectedGuestIds.length === 0) {
       alert("Por favor selecciona al menos un invitado");
+      return;
+    }
+
+    // Check if WhatsApp API URL is available
+    if (!whatsappApiUrl) {
+      alert("No se ha configurado la URL del servicio de WhatsApp para este evento. Por favor, configura la URL en la configuración del evento.");
       return;
     }
 
@@ -659,9 +683,16 @@ const GuestDashboard = () => {
   // Fetch guest data when selected event changes
   useEffect(() => {
     if (selectedEvent) {
+      // Find the selected event data
+      const eventData = events.find(event => event.id === selectedEvent);
+      if (eventData) {
+        setSelectedEventData(eventData);
+        // Update the WhatsApp API URL when the selected event changes
+        setWhatsappApiUrl(eventData.waServiceUrl || "");
+      }
       fetchGuestData();
     }
-  }, [selectedEvent]);
+  }, [selectedEvent, events]);
 
   // Funciones para agregar, editar y eliminar invitados
   const handleAddGuest = () => {
@@ -818,7 +849,16 @@ const GuestDashboard = () => {
             <div style={{ marginTop: '8px' }}>
               <select
                 value={selectedEvent || ""}
-                onChange={(e) => setSelectedEvent(e.target.value)}
+                onChange={(e) => {
+                  const newSelectedEventId = e.target.value;
+                  setSelectedEvent(newSelectedEventId);
+                  // Find the selected event data and update the WhatsApp API URL
+                  const eventData = events.find(event => event.id === newSelectedEventId);
+                  if (eventData) {
+                    setSelectedEventData(eventData);
+                    setWhatsappApiUrl(eventData.waServiceUrl || "");
+                  }
+                }}
                 style={{
                   height: "40px",
                   width: "100%",
@@ -840,6 +880,20 @@ const GuestDashboard = () => {
               </select>
             </div>
           </div>
+          
+          {/* Display the current WhatsApp service URL */}
+          {selectedEventData && (
+            <Box marginTop={2}>
+              <Typography variant="pi" fontWeight="bold">
+                URL del Servicio de WhatsApp
+              </Typography>
+              <Box marginTop={1}>
+                <Typography variant="pi" style={{ wordBreak: "break-all" }}>
+                  {whatsappApiUrl ? whatsappApiUrl : "No configurado"}
+                </Typography>
+              </Box>
+            </Box>
+          )}
         </Box>
 
         {!selectedEvent && (

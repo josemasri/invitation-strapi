@@ -14,6 +14,8 @@ import GuestFormModal from "./GuestFormModal";
 const GuestDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [guests, setGuests] = useState([]);
   const [selectedGuests, setSelectedGuests] = useState({});
   const [guestData, setGuestData] = useState({
@@ -60,14 +62,62 @@ const GuestDashboard = () => {
   const { get, post } = useFetchClient();
   const fetchClient = useFetchClient();
 
+  // Fetch available events
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: response } = await get(
+        "/content-manager/collection-types/api::event.event?populate=*"
+      );
+
+      const events = response.results || [];
+      setEvents(events);
+
+      // Select the first event by default if there are events and none is selected
+      if (events.length > 0 && !selectedEvent) {
+        setSelectedEvent(events[0].id);
+      }
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError("No se pudieron cargar los eventos disponibles.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchGuestData = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      if (!selectedEvent) {
+        // If no event is selected, don't fetch guests
+        setGuests([]);
+        setGuestData({
+          total: 0,
+          confirmed: 0,
+          declined: 0,
+          unknown: 0,
+          confirmedGuests: 0,
+          maxGuests: 0,
+          invitedByBride: 0,
+          invitedByGroom: 0,
+          confirmedByBride: 0,
+          confirmedByGroom: 0,
+          confirmedGuestsByBride: 0,
+          confirmedGuestsByGroom: 0,
+          totalMessages: 0,
+        });
+        setLoading(false);
+        return;
+      }
+
       // Fetch guests from our secure admin endpoint using the authenticated client
+      // Filter by the selected event
       const { data: response } = await get(
-        "/content-manager/collection-types/api::guest.guest?populate=*"
+        `/content-manager/collection-types/api::guest.guest?filters[event][id][$eq]=${selectedEvent}&populate=*`
       );
 
       // The useFetchClient automatically handles errors and parsing JSON
@@ -346,9 +396,15 @@ const GuestDashboard = () => {
             console.log("Prepared guest data:", guestData);
 
             // Create the guest using the Content Manager API
+            // Add the event ID to the guest data
+            const guestDataWithEvent = {
+              ...guestData,
+              event: selectedEvent
+            };
+
             const response = await fetchClient.post(
               "/content-manager/collection-types/api::guest.guest",
-              guestData
+              guestDataWithEvent
             );
 
             // Log the response for debugging
@@ -490,6 +546,7 @@ const GuestDashboard = () => {
         url: `${whatsappApiUrl}/sendInvitationsToSpecificGuests`,
         data: {
           documentIds: selectedGuestIds,
+          eventId: selectedEvent, // Incluir el ID del evento seleccionado
         },
         headers: {
           "Content-Type": "application/json",
@@ -558,6 +615,7 @@ const GuestDashboard = () => {
         url: `${whatsappApiUrl}/sendReminders`,
         data: {
           documentIds: guestIdsWithInvitation,
+          eventId: selectedEvent, // Incluir el ID del evento seleccionado
         },
         headers: {
           "Content-Type": "application/json",
@@ -595,8 +653,15 @@ const GuestDashboard = () => {
   };
 
   useEffect(() => {
-    fetchGuestData();
+    fetchEvents();
   }, []);
+
+  // Fetch guest data when selected event changes
+  useEffect(() => {
+    if (selectedEvent) {
+      fetchGuestData();
+    }
+  }, [selectedEvent]);
 
   // Funciones para agregar, editar y eliminar invitados
   const handleAddGuest = () => {
@@ -640,13 +705,19 @@ const GuestDashboard = () => {
     try {
       setIsSubmittingGuest(true);
       
+      // Add the event ID to the form data
+      const formDataWithEvent = {
+        ...formData,
+        event: selectedEvent
+      };
+      
       if (documentId) {
         // Editar invitado existente
         // Usar axios para tener más control sobre la solicitud
         await axios({
           method: "PUT",
           url: `/content-manager/collection-types/api::guest.guest/${documentId}`,
-          data: formData,
+          data: formDataWithEvent,
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
@@ -654,7 +725,7 @@ const GuestDashboard = () => {
         });
       } else {
         // Crear nuevo invitado
-        await fetchClient.post("/content-manager/collection-types/api::guest.guest", formData);
+        await fetchClient.post("/content-manager/collection-types/api::guest.guest", formDataWithEvent);
       }
       
       // Cerrar modal y actualizar datos
@@ -738,115 +809,160 @@ const GuestDashboard = () => {
           </Button>
         </Flex>
 
-        {/* Componentes del Dashboard */}
-        <GuestSummary guestData={guestData} />
-        
-        <BrideGroomDashboards guestData={guestData} />
-        
-        <ConfirmationProgress
-          confirmedPercentage={confirmedPercentage}
-          declinedPercentage={declinedPercentage}
-          unknownPercentage={unknownPercentage}
-        />
-        
-        {/* Tabs para separar invitados por estado */}
-        <Box marginTop={4}>
-          <Tabs.Root defaultValue="no-invitation" onValueChange={(value) => setActiveTab(["no-invitation", "pending", "confirmed"].indexOf(value))}>
-            <Tabs.List aria-label="Tabs de invitados">
-              <Tabs.Trigger value="no-invitation">Sin invitación enviada</Tabs.Trigger>
-              <Tabs.Trigger value="pending">Invitación enviada sin confirmar</Tabs.Trigger>
-              <Tabs.Trigger value="confirmed">Confirmados</Tabs.Trigger>
-            </Tabs.List>
-            
-            {/* Tab 1: Invitados sin invitación enviada */}
-            <Tabs.Content value="no-invitation">
-              <Box padding={4}>
-                <GuestList
-                  guests={guests.filter(guest => guest.timesSended === 0)}
-                  selectedGuests={selectedGuests}
-                  handleSelectGuest={handleSelectGuest}
-                  handleSelectAll={handleSelectAll}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  statusFilter={statusFilter}
-                  setStatusFilter={setStatusFilter}
-                  invitedByFilter={invitedByFilter}
-                  setInvitedByFilter={setInvitedByFilter}
-                  triggerFileUpload={triggerFileUpload}
-                  isUploading={isUploading}
-                  downloadSampleCSV={downloadSampleCSV}
-                  sendWhatsAppInvitations={sendWhatsAppInvitations}
-                  sendWhatsAppReminders={sendWhatsAppReminders}
-                  fileInputRef={fileInputRef}
-                  handleFileUpload={handleFileUpload}
-                  onAddGuest={handleAddGuest}
-                  onEditGuest={handleEditGuest}
-                  onDeleteGuest={handleDeleteGuest}
-                />
-              </Box>
-            </Tabs.Content>
-            
-            {/* Tab 2: Invitados con invitación enviada pero sin confirmar */}
-            <Tabs.Content value="pending">
-              <Box padding={4}>
-                <GuestList
-                  guests={guests.filter(guest =>
-                    guest.timesSended > 0 &&
-                    (guest.confirmed === "unknown" || !guest.confirmed)
-                  )}
-                  selectedGuests={selectedGuests}
-                  handleSelectGuest={handleSelectGuest}
-                  handleSelectAll={handleSelectAll}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  statusFilter={statusFilter}
-                  setStatusFilter={setStatusFilter}
-                  invitedByFilter={invitedByFilter}
-                  setInvitedByFilter={setInvitedByFilter}
-                  triggerFileUpload={triggerFileUpload}
-                  isUploading={isUploading}
-                  downloadSampleCSV={downloadSampleCSV}
-                  sendWhatsAppInvitations={sendWhatsAppInvitations}
-                  sendWhatsAppReminders={sendWhatsAppReminders}
-                  fileInputRef={fileInputRef}
-                  handleFileUpload={handleFileUpload}
-                  onAddGuest={handleAddGuest}
-                  onEditGuest={handleEditGuest}
-                  onDeleteGuest={handleDeleteGuest}
-                />
-              </Box>
-            </Tabs.Content>
-            
-            {/* Tab 3: Invitados confirmados */}
-            <Tabs.Content value="confirmed">
-              <Box padding={4}>
-                <GuestList
-                  guests={guests.filter(guest => guest.confirmed === "yes")}
-                  selectedGuests={selectedGuests}
-                  handleSelectGuest={handleSelectGuest}
-                  handleSelectAll={handleSelectAll}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  statusFilter={statusFilter}
-                  setStatusFilter={setStatusFilter}
-                  invitedByFilter={invitedByFilter}
-                  setInvitedByFilter={setInvitedByFilter}
-                  triggerFileUpload={triggerFileUpload}
-                  isUploading={isUploading}
-                  downloadSampleCSV={downloadSampleCSV}
-                  sendWhatsAppInvitations={sendWhatsAppInvitations}
-                  sendWhatsAppReminders={sendWhatsAppReminders}
-                  fileInputRef={fileInputRef}
-                  handleFileUpload={handleFileUpload}
-                  onAddGuest={handleAddGuest}
-                  onEditGuest={handleEditGuest}
-                  onDeleteGuest={handleDeleteGuest}
-                />
-              </Box>
-            </Tabs.Content>
-          </Tabs.Root>
+        {/* Selector de Eventos */}
+        <Box marginBottom={4}>
+          <div>
+            <Typography variant="pi" fontWeight="bold">
+              Seleccionar Evento
+            </Typography>
+            <div style={{ marginTop: '8px' }}>
+              <select
+                value={selectedEvent || ""}
+                onChange={(e) => setSelectedEvent(e.target.value)}
+                style={{
+                  height: "40px",
+                  width: "100%",
+                  padding: "0 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #dcdce4",
+                  background: "#ffffff",
+                  fontSize: "14px",
+                }}
+              >
+                <option value="" disabled>
+                  Selecciona un evento
+                </option>
+                {events.map((event) => (
+                  <option key={event.id} value={event.id}>
+                    {event.name} - {new Date(event.date).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </Box>
-      </Box>
+
+        {!selectedEvent && (
+          <Box padding={6} background="neutral0" shadow="filterShadow" hasRadius>
+            <EmptyStateLayout
+              icon={<span>📅</span>}
+              content="Por favor selecciona un evento para ver sus invitados"
+            />
+          </Box>
+        )}
+{selectedEvent && (
+  <>
+    {/* Componentes del Dashboard */}
+    <GuestSummary guestData={guestData} />
+    
+    <BrideGroomDashboards guestData={guestData} />
+    
+    <ConfirmationProgress
+      confirmedPercentage={confirmedPercentage}
+      declinedPercentage={declinedPercentage}
+      unknownPercentage={unknownPercentage}
+    />
+    
+    {/* Tabs para separar invitados por estado */}
+    <Box marginTop={4}>
+      <Tabs.Root defaultValue="no-invitation" onValueChange={(value) => setActiveTab(["no-invitation", "pending", "confirmed"].indexOf(value))}>
+        <Tabs.List aria-label="Tabs de invitados">
+          <Tabs.Trigger value="no-invitation">Sin invitación enviada</Tabs.Trigger>
+          <Tabs.Trigger value="pending">Invitación enviada sin confirmar</Tabs.Trigger>
+          <Tabs.Trigger value="confirmed">Confirmados</Tabs.Trigger>
+        </Tabs.List>
+        
+        {/* Tab 1: Invitados sin invitación enviada */}
+        <Tabs.Content value="no-invitation">
+          <Box padding={4}>
+            <GuestList
+              guests={guests.filter(guest => guest.timesSended === 0)}
+              selectedGuests={selectedGuests}
+              handleSelectGuest={handleSelectGuest}
+              handleSelectAll={handleSelectAll}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              invitedByFilter={invitedByFilter}
+              setInvitedByFilter={setInvitedByFilter}
+              triggerFileUpload={triggerFileUpload}
+              isUploading={isUploading}
+              downloadSampleCSV={downloadSampleCSV}
+              sendWhatsAppInvitations={sendWhatsAppInvitations}
+              sendWhatsAppReminders={sendWhatsAppReminders}
+              fileInputRef={fileInputRef}
+              handleFileUpload={handleFileUpload}
+              onAddGuest={handleAddGuest}
+              onEditGuest={handleEditGuest}
+              onDeleteGuest={handleDeleteGuest}
+            />
+          </Box>
+        </Tabs.Content>
+        
+        {/* Tab 2: Invitados con invitación enviada pero sin confirmar */}
+        <Tabs.Content value="pending">
+          <Box padding={4}>
+            <GuestList
+              guests={guests.filter(guest =>
+                guest.timesSended > 0 &&
+                (guest.confirmed === "unknown" || !guest.confirmed)
+              )}
+              selectedGuests={selectedGuests}
+              handleSelectGuest={handleSelectGuest}
+              handleSelectAll={handleSelectAll}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              invitedByFilter={invitedByFilter}
+              setInvitedByFilter={setInvitedByFilter}
+              triggerFileUpload={triggerFileUpload}
+              isUploading={isUploading}
+              downloadSampleCSV={downloadSampleCSV}
+              sendWhatsAppInvitations={sendWhatsAppInvitations}
+              sendWhatsAppReminders={sendWhatsAppReminders}
+              fileInputRef={fileInputRef}
+              handleFileUpload={handleFileUpload}
+              onAddGuest={handleAddGuest}
+              onEditGuest={handleEditGuest}
+              onDeleteGuest={handleDeleteGuest}
+            />
+          </Box>
+        </Tabs.Content>
+        
+        {/* Tab 3: Invitados confirmados */}
+        <Tabs.Content value="confirmed">
+          <Box padding={4}>
+            <GuestList
+              guests={guests.filter(guest => guest.confirmed === "yes")}
+              selectedGuests={selectedGuests}
+              handleSelectGuest={handleSelectGuest}
+              handleSelectAll={handleSelectAll}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              invitedByFilter={invitedByFilter}
+              setInvitedByFilter={setInvitedByFilter}
+              triggerFileUpload={triggerFileUpload}
+              isUploading={isUploading}
+              downloadSampleCSV={downloadSampleCSV}
+              sendWhatsAppInvitations={sendWhatsAppInvitations}
+              sendWhatsAppReminders={sendWhatsAppReminders}
+              fileInputRef={fileInputRef}
+              handleFileUpload={handleFileUpload}
+              onAddGuest={handleAddGuest}
+              onEditGuest={handleEditGuest}
+              onDeleteGuest={handleDeleteGuest}
+            />
+          </Box>
+        </Tabs.Content>
+      </Tabs.Root>
+    </Box>
+  </>
+)}
+</Box>
 
       {/* Modal de resultados de importación */}
       {showUploadDialog && (

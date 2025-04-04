@@ -43,6 +43,12 @@
     "timesSended": {
       "type": "integer",
       "default": 0
+    },
+    "event": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::event.event",
+      "inversedBy": "guests"
     }
   }
 }

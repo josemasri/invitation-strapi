@@ -389,6 +389,7 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
     invitation: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios'
     >;
+    invitationUrl: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::event.event'> &
       Schema.Attribute.Private;

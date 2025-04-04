@@ -42,6 +42,9 @@
     },
     "waServiceUrl": {
       "type": "string"
+    },
+    "invitationUrl": {
+      "type": "string"
     }
   }
 }

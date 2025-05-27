@@ -386,6 +386,7 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     date: Schema.Attribute.DateTime;
+    dressCode: Schema.Attribute.String;
     googleMapsUrl: Schema.Attribute.String;
     guests: Schema.Attribute.Relation<'oneToMany', 'api::guest.guest'>;
     invitation: Schema.Attribute.Media<

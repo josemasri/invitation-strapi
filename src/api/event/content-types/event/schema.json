@@ -51,6 +51,9 @@
     },
     "googleMapsUrl": {
       "type": "string"
+    },
+    "dressCode": {
+      "type": "string"
     }
   }
 }

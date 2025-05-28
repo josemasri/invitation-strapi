@@ -71,7 +71,7 @@ const GuestDashboard = () => {
       setError(null);
 
       const { data: response } = await get(
-        "/content-manager/collection-types/api::event.event?populate=*"
+        "/content-manager/collection-types/api::event.event?populate=*&pagination[pageSize]=100"
       );
 
       const events = response.results || [];
@@ -120,9 +120,9 @@ const GuestDashboard = () => {
       }
 
       // Fetch guests from our secure admin endpoint using the authenticated client
-      // Filter by the selected event
+      // Filter by the selected event and set pagination to get all guests
       const { data: response } = await get(
-        `/content-manager/collection-types/api::guest.guest?filters[event][id][$eq]=${selectedEvent}&populate=*`
+        `/content-manager/collection-types/api::guest.guest?filters[event][id][$eq]=${selectedEvent}&populate=*&pagination[pageSize]=1000`
       );
 
       // The useFetchClient automatically handles errors and parsing JSON
@@ -366,7 +366,7 @@ const GuestDashboard = () => {
               try {
                 // Search for existing guest with same phone number using Content Manager API
                 const { data: existingGuests } = await fetchClient.get(
-                  `/content-manager/collection-types/api::guest.guest?filters[phone][$eq]=${row.phone}&populate=*`
+                  `/content-manager/collection-types/api::guest.guest?filters[phone][$eq]=${row.phone}&populate=*&pagination[pageSize]=100`
                 );
 
                 if (

@@ -405,7 +405,6 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
       'manyToMany',
       'plugin::users-permissions.user'
     >;
-    waServiceUrl: Schema.Attribute.String;
   };
 }
 

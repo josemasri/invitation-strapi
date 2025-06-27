@@ -40,9 +40,6 @@
       "target": "plugin::users-permissions.user",
       "mappedBy": "events"
     },
-    "waServiceUrl": {
-      "type": "string"
-    },
     "invitationUrl": {
       "type": "string"
     },

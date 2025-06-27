@@ -57,12 +57,13 @@ const GuestDashboard = () => {
   const [apiAvailable, setApiAvailable] = useState(false);
   const qrPollInterval = useRef(null);
   const qrImageRef = useRef(null);
-  // WhatsApp API URL will be taken from the selected event's waServiceUrl field
-  const [whatsappApiUrl, setWhatsappApiUrl] = useState("");
+  // Global WhatsApp API URL configuration
+  const whatsappApiUrl = process.env.WHATSAPP_API_URL || "http://localhost:3001";
 
   // Use the authenticated fetch client from Strapi
   const { get, post } = useFetchClient();
   const fetchClient = useFetchClient();
+
 
   // Fetch available events
   const fetchEvents = async () => {
@@ -81,8 +82,6 @@ const GuestDashboard = () => {
       if (events.length > 0 && !selectedEvent) {
         setSelectedEvent(events[0].id);
         setSelectedEventData(events[0]);
-        // Set the WhatsApp API URL from the event's waServiceUrl field
-        setWhatsappApiUrl(events[0].waServiceUrl || "");
       }
     } catch (err) {
       console.error("Error fetching events:", err);
@@ -687,8 +686,6 @@ const GuestDashboard = () => {
       const eventData = events.find(event => event.id === selectedEvent);
       if (eventData) {
         setSelectedEventData(eventData);
-        // Update the WhatsApp API URL when the selected event changes
-        setWhatsappApiUrl(eventData.waServiceUrl || "");
       }
       fetchGuestData();
     }
@@ -852,11 +849,10 @@ const GuestDashboard = () => {
                 onChange={(e) => {
                   const newSelectedEventId = e.target.value;
                   setSelectedEvent(newSelectedEventId);
-                  // Find the selected event data and update the WhatsApp API URL
+                  // Find the selected event data
                   const eventData = events.find(event => event.id === newSelectedEventId);
                   if (eventData) {
                     setSelectedEventData(eventData);
-                    setWhatsappApiUrl(eventData.waServiceUrl || "");
                   }
                 }}
                 style={{

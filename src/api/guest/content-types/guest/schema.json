@@ -52,6 +52,12 @@
       "relation": "manyToOne",
       "target": "api::event.event",
       "inversedBy": "guests"
+    },
+    "eventConfirmations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::event-confirmation.event-confirmation",
+      "mappedBy": "guest"
     }
   }
 }

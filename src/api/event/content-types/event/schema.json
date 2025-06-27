@@ -51,6 +51,12 @@
     },
     "dressCode": {
       "type": "string"
+    },
+    "eventConfirmations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::event-confirmation.event-confirmation",
+      "mappedBy": "event"
     }
   }
 }

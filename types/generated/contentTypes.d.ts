@@ -369,6 +369,42 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiEventConfirmationEventConfirmation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'event_confirmations';
+  info: {
+    description: 'Manages guest confirmations for specific events';
+    displayName: 'Event Confirmation';
+    pluralName: 'event-confirmations';
+    singularName: 'event-confirmation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    confirmed: Schema.Attribute.Enumeration<['unknown', 'yes', 'no']> &
+      Schema.Attribute.DefaultTo<'unknown'>;
+    confirmedAt: Schema.Attribute.DateTime;
+    confirmedGuests: Schema.Attribute.Integer;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    event: Schema.Attribute.Relation<'manyToOne', 'api::event.event'>;
+    guest: Schema.Attribute.Relation<'manyToOne', 'api::guest.guest'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::event-confirmation.event-confirmation'
+    > &
+      Schema.Attribute.Private;
+    notes: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiEventEvent extends Struct.CollectionTypeSchema {
   collectionName: 'events';
   info: {
@@ -387,6 +423,10 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     date: Schema.Attribute.DateTime;
     dressCode: Schema.Attribute.String;
+    eventConfirmations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::event-confirmation.event-confirmation'
+    >;
     googleMapsUrl: Schema.Attribute.String;
     guests: Schema.Attribute.Relation<'oneToMany', 'api::guest.guest'>;
     invitation: Schema.Attribute.Media<
@@ -405,40 +445,6 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
       'manyToMany',
       'plugin::users-permissions.user'
     >;
-  };
-}
-
-export interface ApiGeneralInfoGeneralInfo extends Struct.SingleTypeSchema {
-  collectionName: 'general_infos';
-  info: {
-    description: '';
-    displayName: 'General Info';
-    pluralName: 'general-infos';
-    singularName: 'general-info';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    address: Schema.Attribute.Text;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    date: Schema.Attribute.DateTime;
-    dresscode: Schema.Attribute.String;
-    introduction: Schema.Attribute.Text;
-    invitation: Schema.Attribute.Media<'images' | 'files'>;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::general-info.general-info'
-    > &
-      Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    urlInvitation: Schema.Attribute.String;
   };
 }
 
@@ -461,6 +467,11 @@ export interface ApiGuestGuest extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     event: Schema.Attribute.Relation<'manyToOne', 'api::event.event'>;
+    eventConfirmations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::event-confirmation.event-confirmation'
+    >;
+    invitationName: Schema.Attribute.String;
     invitedBy: Schema.Attribute.Enumeration<['Groom', 'Bride']>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::guest.guest'> &
@@ -985,8 +996,8 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::event-confirmation.event-confirmation': ApiEventConfirmationEventConfirmation;
       'api::event.event': ApiEventEvent;
-      'api::general-info.general-info': ApiGeneralInfoGeneralInfo;
       'api::guest.guest': ApiGuestGuest;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

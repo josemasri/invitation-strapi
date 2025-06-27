@@ -1,0 +1,45 @@
+{
+  "kind": "collectionType",
+  "collectionName": "event_confirmations",
+  "info": {
+    "singularName": "event-confirmation",
+    "pluralName": "event-confirmations",
+    "displayName": "Event Confirmation",
+    "description": "Manages guest confirmations for specific events"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "guest": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::guest.guest",
+      "inversedBy": "eventConfirmations"
+    },
+    "event": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::event.event",
+      "inversedBy": "eventConfirmations"
+    },
+    "confirmed": {
+      "type": "enumeration",
+      "enum": [
+        "unknown",
+        "yes",
+        "no"
+      ],
+      "default": "unknown"
+    },
+    "confirmedGuests": {
+      "type": "integer"
+    },
+    "confirmedAt": {
+      "type": "datetime"
+    },
+    "notes": {
+      "type": "text"
+    }
+  }
+}

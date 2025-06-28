@@ -7,49 +7,68 @@
 const { createCoreService } = require('@strapi/strapi').factories;
 
 module.exports = createCoreService('api::guest.guest', ({ strapi }) => ({
-  // Normalize phone number to WhatsApp format (with country code)
-  normalizePhoneToWhatsApp(phoneNumber) {
-    console.log(`normalizePhoneToWhatsApp input: "${phoneNumber}"`);
+  // Parse and separate country code from full phone number
+  parsePhoneNumber(fullPhoneNumber) {
+    console.log(`parsePhoneNumber input: "${fullPhoneNumber}"`);
     
-    if (!phoneNumber) {
-      console.log('Empty phone number provided');
-      return phoneNumber;
+    if (!fullPhoneNumber) {
+      return { countryCode: '521', phone: '' };
     }
     
     // Remove any non-numeric characters
-    let cleanPhone = phoneNumber.replace(/\D/g, '');
+    let cleanPhone = fullPhoneNumber.replace(/\D/g, '');
     console.log(`After removing non-numeric: "${cleanPhone}"`);
     
-    // If already has 521 prefix, return as is
+    // If it has 521 prefix (Mexico with mobile prefix)
     if (cleanPhone.startsWith('521') && cleanPhone.length === 13) {
-      console.log(`Already normalized: "${cleanPhone}"`);
-      return cleanPhone;
+      return {
+        countryCode: '521',
+        phone: cleanPhone.substring(3) // Remove 521 prefix
+      };
     }
     
-    // If has 52 prefix but not 521, convert it
+    // If it has 52 prefix (Mexico without mobile prefix)
     if (cleanPhone.startsWith('52') && cleanPhone.length === 12) {
-      const normalized = '521' + cleanPhone.substring(2);
-      console.log(`Converted 52 to 521: "${normalized}"`);
-      return normalized;
+      return {
+        countryCode: '521',
+        phone: cleanPhone.substring(2) // Remove 52 prefix
+      };
     }
     
-    // If it's a 10-digit Mexican number, add 521 prefix
-    if (cleanPhone.length === 10) {
-      const normalized = '521' + cleanPhone;
-      console.log(`Added 521 prefix: "${normalized}"`);
-      return normalized;
-    }
-    
-    // If it has leading 1 (like 15563192945), remove it and add 521
+    // If it has leading 1 (Mexico city code format)
     if (cleanPhone.startsWith('1') && cleanPhone.length === 11) {
-      const withoutLeading1 = cleanPhone.substring(1);
-      const normalized = '521' + withoutLeading1;
-      console.log(`Removed leading 1 and added 521: "${normalized}"`);
-      return normalized;
+      return {
+        countryCode: '521',
+        phone: cleanPhone.substring(1) // Remove leading 1
+      };
     }
     
-    console.log(`Could not normalize phone: "${cleanPhone}", returning as is`);
-    return cleanPhone;
+    // If it's a 10-digit number (assume Mexico)
+    if (cleanPhone.length === 10) {
+      return {
+        countryCode: '521',
+        phone: cleanPhone
+      };
+    }
+    
+    // Default case: assume it's already separated
+    console.log(`Could not parse phone: "${cleanPhone}", treating as phone only`);
+    return {
+      countryCode: '521',
+      phone: cleanPhone
+    };
+  },
+
+  // Combine country code and phone for WhatsApp format
+  combinePhoneForWhatsApp(countryCode, phone) {
+    if (!phone) return '';
+    
+    // Remove any non-numeric characters from both
+    const cleanCountryCode = countryCode ? countryCode.replace(/\D/g, '') : '521';
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    console.log(`Combining ${cleanCountryCode} + ${cleanPhone} for WhatsApp`);
+    return `${cleanCountryCode}${cleanPhone}`;
   },
 
   // Keep the default service
@@ -57,18 +76,22 @@ module.exports = createCoreService('api::guest.guest', ({ strapi }) => ({
     return await super.find(params);
   },
   
-  // Override create method to normalize phone numbers
+  // Override create method to parse and separate phone numbers
   async create(params) {
     if (params.data && params.data.phone) {
-      params.data.phone = this.normalizePhoneToWhatsApp(params.data.phone);
+      const parsed = this.parsePhoneNumber(params.data.phone);
+      params.data.countryCode = parsed.countryCode;
+      params.data.phone = parsed.phone;
     }
     return await super.create(params);
   },
   
-  // Override update method to normalize phone numbers
+  // Override update method to parse and separate phone numbers
   async update(entityId, params) {
     if (params.data && params.data.phone) {
-      params.data.phone = this.normalizePhoneToWhatsApp(params.data.phone);
+      const parsed = this.parsePhoneNumber(params.data.phone);
+      params.data.countryCode = parsed.countryCode;
+      params.data.phone = parsed.phone;
     }
     return await super.update(entityId, params);
   },
@@ -95,11 +118,12 @@ module.exports = createCoreService('api::guest.guest', ({ strapi }) => ({
             continue;
           }
           
-          // Check for duplicates by phone number (normalize before checking)
+          // Check for duplicates by phone number (parse and combine before checking)
           if (row.phone) {
-            const normalizedPhone = this.normalizePhoneToWhatsApp(row.phone);
+            const parsed = this.parsePhoneNumber(row.phone);
+            const fullWhatsAppPhone = this.combinePhoneForWhatsApp(parsed.countryCode, parsed.phone);
             const existingGuest = await strapi.db.query('api::guest.guest').findOne({
-              where: { phone: normalizedPhone }
+              where: { phone: parsed.phone, countryCode: parsed.countryCode }
             });
             
             if (existingGuest) {
@@ -116,9 +140,11 @@ module.exports = createCoreService('api::guest.guest', ({ strapi }) => ({
           }
           
           // Prepare guest data
+          const parsed = row.phone ? this.parsePhoneNumber(row.phone) : { countryCode: '521', phone: '' };
           const guestData = {
             name: row.name,
-            phone: row.phone ? this.normalizePhoneToWhatsApp(row.phone) : null,
+            countryCode: parsed.countryCode,
+            phone: parsed.phone,
             maxGuests: parseInt(row.maxGuests) || 1,
             confirmedGuests: parseInt(row.confirmedGuests) || null,
             confirmed: row.confirmed || 'unknown',

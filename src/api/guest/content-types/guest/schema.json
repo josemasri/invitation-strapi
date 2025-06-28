@@ -21,6 +21,11 @@
       "type": "integer",
       "default": 1
     },
+    "countryCode": {
+      "type": "string",
+      "default": "521",
+      "required": true
+    },
     "phone": {
       "type": "string"
     },

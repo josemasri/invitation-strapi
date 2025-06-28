@@ -1,65 +1,72 @@
 /**
- * Script to migrate existing phone numbers to WhatsApp format
- * This script normalizes all existing phone numbers in the database
- * to include the proper country code (521 prefix for Mexico)
+ * Script to migrate existing phone numbers to separate countryCode and phone fields
+ * This script separates phone numbers into countryCode and phone fields
+ * Default country code is 521 for Mexico
  */
 
 'use strict';
 
 const path = require('path');
 
-// Function to normalize phone number (same as in guest service)
-function normalizePhoneToWhatsApp(phoneNumber) {
-  console.log(`normalizePhoneToWhatsApp input: "${phoneNumber}"`);
+// Function to parse phone number into country code and phone number
+function parsePhoneNumber(phoneNumber) {
+  console.log(`parsePhoneNumber input: "${phoneNumber}"`);
   
   if (!phoneNumber) {
     console.log('Empty phone number provided');
-    return phoneNumber;
+    return { countryCode: '521', phone: null };
   }
   
   // Remove any non-numeric characters
   let cleanPhone = phoneNumber.replace(/\D/g, '');
   console.log(`After removing non-numeric: "${cleanPhone}"`);
   
-  // If already has 521 prefix, return as is
+  // If already has 521 prefix (WhatsApp format)
   if (cleanPhone.startsWith('521') && cleanPhone.length === 13) {
-    console.log(`Already normalized: "${cleanPhone}"`);
-    return cleanPhone;
+    const phone = cleanPhone.substring(3);
+    console.log(`Parsed 521 format: countryCode=521, phone=${phone}`);
+    return { countryCode: '521', phone };
   }
   
-  // If has 52 prefix but not 521, convert it
+  // If has 52 prefix but not 521
   if (cleanPhone.startsWith('52') && cleanPhone.length === 12) {
-    const normalized = '521' + cleanPhone.substring(2);
-    console.log(`Converted 52 to 521: "${normalized}"`);
-    return normalized;
+    const phone = cleanPhone.substring(2);
+    console.log(`Parsed 52 format: countryCode=521, phone=${phone}`);
+    return { countryCode: '521', phone };
   }
   
-  // If it's a 10-digit Mexican number, add 521 prefix
+  // If it's a 10-digit Mexican number
   if (cleanPhone.length === 10) {
-    const normalized = '521' + cleanPhone;
-    console.log(`Added 521 prefix: "${normalized}"`);
-    return normalized;
+    console.log(`Parsed 10-digit Mexican: countryCode=521, phone=${cleanPhone}`);
+    return { countryCode: '521', phone: cleanPhone };
   }
   
-  // If it has leading 1 (like 15563192945), remove it and add 521
+  // If it has leading 1 (like 15563192945), remove it and treat as Mexican
   if (cleanPhone.startsWith('1') && cleanPhone.length === 11) {
-    const withoutLeading1 = cleanPhone.substring(1);
-    const normalized = '521' + withoutLeading1;
-    console.log(`Removed leading 1 and added 521: "${normalized}"`);
-    return normalized;
+    const phone = cleanPhone.substring(1);
+    console.log(`Parsed 1-prefixed format: countryCode=521, phone=${phone}`);
+    return { countryCode: '521', phone };
   }
   
-  console.log(`Could not normalize phone: "${cleanPhone}", returning as is`);
-  return cleanPhone;
+  // If it starts with 1 and is 11 digits, might be US number
+  if (cleanPhone.startsWith('1') && cleanPhone.length === 11) {
+    const phone = cleanPhone.substring(1);
+    console.log(`Parsed US format: countryCode=1, phone=${phone}`);
+    return { countryCode: '1', phone };
+  }
+  
+  // Default to Mexican format
+  console.log(`Could not parse phone: "${cleanPhone}", defaulting to Mexican format`);
+  return { countryCode: '521', phone: cleanPhone };
 }
 
 async function migratePhoneNumbers() {
   try {
-    console.log('🚀 Starting phone number migration...');
+    console.log('🚀 Starting phone number separation migration...');
     
     // Get all guests using entityService
     const guests = await strapi.entityService.findMany('api::guest.guest', {
-      fields: ['documentId', 'name', 'phone'],
+      fields: ['documentId', 'name', 'phone', 'countryCode'],
     });
     
     console.log(`📊 Found ${guests.length} guests to process`);
@@ -70,27 +77,44 @@ async function migratePhoneNumbers() {
     
     for (const guest of guests) {
       try {
-        if (!guest.phone) {
-          console.log(`⏩ Skipping guest ${guest.name} (ID: ${guest.documentId}) - no phone number`);
+        // Skip if guest already has separated fields and phone is present
+        if (guest.countryCode && guest.phone) {
+          console.log(`⏩ Skipping guest ${guest.name} (ID: ${guest.documentId}) - already has separated fields: countryCode=${guest.countryCode}, phone=${guest.phone}`);
           skipped++;
           continue;
         }
         
-        const originalPhone = guest.phone;
-        const normalizedPhone = normalizePhoneToWhatsApp(originalPhone);
-        
-        // Only update if the phone number changed
-        if (originalPhone !== normalizedPhone) {
-          await strapi.entityService.update('api::guest.guest', guest.documentId, {
-            data: { phone: normalizedPhone }
-          });
-          
-          console.log(`✅ Updated ${guest.name} (ID: ${guest.documentId}): ${originalPhone} → ${normalizedPhone}`);
-          updated++;
-        } else {
-          console.log(`⏩ Skipping guest ${guest.name} (ID: ${guest.documentId}) - phone already normalized: ${originalPhone}`);
-          skipped++;
+        if (!guest.phone) {
+          // Set default country code if no phone number
+          if (!guest.countryCode) {
+            await strapi.entityService.update('api::guest.guest', guest.documentId, {
+              data: { countryCode: '521' }
+            });
+            console.log(`✅ Set default countryCode for ${guest.name} (ID: ${guest.documentId}): countryCode=521`);
+            updated++;
+          } else {
+            console.log(`⏩ Skipping guest ${guest.name} (ID: ${guest.documentId}) - no phone number but has countryCode`);
+            skipped++;
+          }
+          continue;
         }
+        
+        const originalPhone = guest.phone;
+        const { countryCode, phone } = parsePhoneNumber(originalPhone);
+        
+        // Update the guest with separated fields
+        const updateData = {
+          countryCode: countryCode,
+          phone: phone
+        };
+        
+        await strapi.entityService.update('api::guest.guest', guest.documentId, {
+          data: updateData
+        });
+        
+        console.log(`✅ Updated ${guest.name} (ID: ${guest.documentId}): "${originalPhone}" → countryCode=${countryCode}, phone=${phone}`);
+        updated++;
+        
       } catch (error) {
         console.error(`❌ Error updating guest ${guest.name} (ID: ${guest.documentId}):`, error.message);
         errors++;
@@ -117,7 +141,7 @@ async function migratePhoneNumbers() {
 
 module.exports = {
   migratePhoneNumbers,
-  normalizePhoneToWhatsApp
+  parsePhoneNumber
 };
 
 // If this script is run directly

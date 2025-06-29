@@ -146,8 +146,6 @@ module.exports = createCoreService('api::guest.guest', ({ strapi }) => ({
             countryCode: parsed.countryCode,
             phone: parsed.phone,
             maxGuests: parseInt(row.maxGuests) || 1,
-            confirmedGuests: parseInt(row.confirmedGuests) || null,
-            confirmed: row.confirmed || 'unknown',
             invitedBy: row.invitedBy || null,
             timesSended: parseInt(row.timesSended) || 0,
             message: row.message || null

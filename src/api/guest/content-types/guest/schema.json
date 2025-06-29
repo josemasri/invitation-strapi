@@ -29,18 +29,6 @@
     "phone": {
       "type": "string"
     },
-    "confirmed": {
-      "type": "enumeration",
-      "enum": [
-        "unknown",
-        "yes",
-        "no"
-      ],
-      "default": "unknown"
-    },
-    "confirmedGuests": {
-      "type": "integer"
-    },
     "invitedBy": {
       "type": "enumeration",
       "enum": [

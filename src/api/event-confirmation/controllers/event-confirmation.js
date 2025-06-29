@@ -11,6 +11,8 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
     try {
       const { guestId } = ctx.params;
       
+      console.log('findByGuest called with guestId:', guestId);
+      
       const confirmations = await strapi.documents('api::event-confirmation.event-confirmation').findMany({
         filters: {
           guest: {
@@ -23,8 +25,12 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
         }
       });
 
+      console.log('Found confirmations for guest:', confirmations.length);
+      console.log('Guest confirmations data:', JSON.stringify(confirmations, null, 2));
+
       return confirmations;
     } catch (error) {
+      console.error('Error in findByGuest:', error);
       ctx.throw(500, error);
     }
   },
@@ -32,6 +38,8 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
   async findByEvent(ctx) {
     try {
       const { eventId } = ctx.params;
+      
+      console.log('findByEvent called with eventId:', eventId);
       
       const confirmations = await strapi.documents('api::event-confirmation.event-confirmation').findMany({
         filters: {
@@ -45,8 +53,12 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
         }
       });
 
+      console.log('Found confirmations:', confirmations.length);
+      console.log('Confirmations data:', JSON.stringify(confirmations, null, 2));
+
       return confirmations;
     } catch (error) {
+      console.error('Error in findByEvent:', error);
       ctx.throw(500, error);
     }
   },

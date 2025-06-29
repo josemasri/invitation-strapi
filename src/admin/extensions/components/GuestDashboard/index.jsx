@@ -127,31 +127,44 @@ const GuestDashboard = () => {
       // The useFetchClient automatically handles errors and parsing JSON
       const guests = response.results || [];
 
-      // Store the guests list
-      setGuests(guests);
+      // Fetch event confirmations for this event
+      let confirmations = [];
+      try {
+        const { data: confirmationsResponse } = await get(
+          `/event-confirmations/event/${selectedEventData?.documentId || selectedEvent}`
+        );
+        confirmations = confirmationsResponse || [];
+      } catch (confirmationError) {
+        console.log('No event confirmations found for this event');
+        confirmations = [];
+      }
+
+      // Merge guest data with confirmation data
+      const guestsWithConfirmations = guests.map(guest => {
+        const confirmation = confirmations.find(c => c.guest.documentId === guest.documentId);
+        return {
+          ...guest,
+          confirmed: confirmation?.confirmed || 'unknown',
+          confirmedGuests: confirmation?.confirmedGuests || null
+        };
+      });
+
+      // Store the guests list with confirmation data
+      setGuests(guestsWithConfirmations);
 
       // Reset selected guests when refreshing data
       setSelectedGuests({});
 
-      // Process the data based on the actual API response
-      const total = guests.length;
-      const confirmed = guests.filter(
-        (guest) => guest.confirmed === "yes"
-      ).length;
-      const declined = guests.filter(
-        (guest) => guest.confirmed === "no"
-      ).length;
-      const unknown = guests.filter(
-        (guest) => guest.confirmed === "unknown" || !guest.confirmed
-      ).length;
+      // Process the data based on confirmations from event-confirmations API
+      const total = guestsWithConfirmations.length;
+      const confirmed = confirmations.filter(c => c?.confirmed === 'yes').length;
+      const declined = confirmations.filter(c => c?.confirmed === 'no').length;
+      const unknown = total - confirmed - declined;
 
-      // Calculate total confirmed guests based on maxGuests field
-      const confirmedGuests = guests
-        .filter((guest) => guest.confirmed === "yes")
-        .reduce(
-          (sum, guest) => sum + (guest.confirmedGuests || guest.maxGuests),
-          0
-        );
+      // Calculate total confirmed guests based on confirmation data
+      const confirmedGuests = confirmations
+        .filter(c => c?.confirmed === 'yes')
+        .reduce((sum, c) => sum + (c?.confirmedGuests || c?.guest?.maxGuests || 0), 0);
 
       // Calculate maximum possible guests
       const maxGuests = guests.reduce((sum, guest) => sum + guest.maxGuests, 0);
@@ -164,27 +177,20 @@ const GuestDashboard = () => {
         (guest) => guest.invitedBy === "Groom"
       ).length;
 
-      // Calculate confirmed invitations by bride and groom
-      const confirmedByBride = guests.filter(
-        (guest) => guest.invitedBy === "Bride" && guest.confirmed === "yes"
-      ).length;
-      const confirmedByGroom = guests.filter(
-        (guest) => guest.invitedBy === "Groom" && guest.confirmed === "yes"
-      ).length;
+      // Calculate confirmed invitations by bride and groom using confirmations
+      const brideConfirmations = confirmations.filter(c => c?.guest?.invitedBy === 'Bride');
+      const groomConfirmations = confirmations.filter(c => c?.guest?.invitedBy === 'Groom');
+      
+      const confirmedByBride = brideConfirmations.filter(c => c?.confirmed === 'yes').length;
+      const confirmedByGroom = groomConfirmations.filter(c => c?.confirmed === 'yes').length;
 
       // Calculate total confirmed guests by bride and groom
-      const confirmedGuestsByBride = guests
-        .filter((guest) => guest.invitedBy === "Bride" && guest.confirmed === "yes")
-        .reduce(
-          (sum, guest) => sum + (guest.confirmedGuests || guest.maxGuests),
-          0
-        );
-      const confirmedGuestsByGroom = guests
-        .filter((guest) => guest.invitedBy === "Groom" && guest.confirmed === "yes")
-        .reduce(
-          (sum, guest) => sum + (guest.confirmedGuests || guest.maxGuests),
-          0
-        );
+      const confirmedGuestsByBride = brideConfirmations
+        .filter(c => c?.confirmed === 'yes')
+        .reduce((sum, c) => sum + (c?.confirmedGuests || c?.guest?.maxGuests || 0), 0);
+      const confirmedGuestsByGroom = groomConfirmations
+        .filter(c => c?.confirmed === 'yes')
+        .reduce((sum, c) => sum + (c?.confirmedGuests || c?.guest?.maxGuests || 0), 0);
 
       // Set total messages to 0 since message field has been removed
       const totalMessages = 0;

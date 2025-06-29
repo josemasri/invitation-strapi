@@ -5,12 +5,22 @@
  */
 
 const { createCoreRouter } = require('@strapi/strapi').factories;
-
-// Create default router for CRUD operations
 const defaultRouter = createCoreRouter('api::message-status.message-status');
 
-// Define custom routes
-const customRoutes = [
+const customRouter = (innerRouter, extraRoutes = []) => {
+  let routes;
+  return {
+    get prefix() {
+      return innerRouter.prefix;
+    },
+    get routes() {
+      if (!routes) routes = innerRouter.routes.concat(extraRoutes);
+      return routes;
+    },
+  };
+};
+
+const myExtraRoutes = [
   {
     method: 'GET',
     path: '/message-statuses/message/:messageId',
@@ -38,12 +48,4 @@ const customRoutes = [
   }
 ];
 
-// Export combined routes
-module.exports = {
-  routes: [
-    // Default CRUD routes
-    ...defaultRouter.routes,
-    // Custom routes
-    ...customRoutes
-  ]
-};
+module.exports = customRouter(defaultRouter, myExtraRoutes);

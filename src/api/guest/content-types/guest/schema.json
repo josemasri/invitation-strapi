@@ -63,6 +63,12 @@
       "relation": "oneToMany",
       "target": "api::event-confirmation.event-confirmation",
       "mappedBy": "guest"
+    },
+    "messageStatuses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::message-status.message-status",
+      "mappedBy": "guest"
     }
   }
 }

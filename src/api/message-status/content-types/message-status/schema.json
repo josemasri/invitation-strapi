@@ -1,0 +1,82 @@
+{
+  "kind": "collectionType",
+  "collectionName": "message_statuses",
+  "info": {
+    "singularName": "message-status",
+    "pluralName": "message-statuses",
+    "displayName": "Message Status",
+    "description": "Track WhatsApp message delivery and read status"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "messageId": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "phoneNumber": {
+      "type": "string",
+      "required": true
+    },
+    "messageType": {
+      "type": "enumeration",
+      "enum": [
+        "text",
+        "interactive_buttons",
+        "interactive_list",
+        "template",
+        "wedding_invitation_template"
+      ],
+      "required": true
+    },
+    "content": {
+      "type": "text",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "sent",
+        "delivered",
+        "read",
+        "failed"
+      ],
+      "required": true,
+      "default": "sent"
+    },
+    "errorDetails": {
+      "type": "text"
+    },
+    "sentAt": {
+      "type": "datetime",
+      "required": true
+    },
+    "deliveredAt": {
+      "type": "datetime"
+    },
+    "readAt": {
+      "type": "datetime"
+    },
+    "failedAt": {
+      "type": "datetime"
+    },
+    "retryCount": {
+      "type": "integer",
+      "default": 0
+    },
+    "guest": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::guest.guest",
+      "inversedBy": "messageStatuses"
+    },
+    "event": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::event.event",
+      "inversedBy": "messageStatuses"
+    }
+  }
+}

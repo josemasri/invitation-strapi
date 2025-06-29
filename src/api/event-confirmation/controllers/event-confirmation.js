@@ -54,7 +54,18 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
   async confirmForEvent(ctx) {
     try {
       const { guestId, eventId } = ctx.params;
+      
+      // Check if request body exists and provide defaults
+      if (!ctx.request.body) {
+        return ctx.badRequest('Request body is required');
+      }
+      
       const { confirmed, confirmedGuests, notes } = ctx.request.body;
+      
+      // Validate required fields
+      if (confirmed === undefined || confirmed === null) {
+        return ctx.badRequest('confirmed field is required');
+      }
 
       // Check if confirmation already exists
       const existingConfirmation = await strapi.documents('api::event-confirmation.event-confirmation').findFirst({
@@ -71,17 +82,15 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
       let result;
       if (existingConfirmation) {
         // Update existing confirmation
-        result = await strapi.documents('api::event-confirmation.event-confirmation').update(
-          existingConfirmation.documentId,
-          {
-            data: {
-              confirmed,
-              confirmedGuests,
-              notes,
-              confirmedAt: new Date().toISOString()
-            }
+        result = await strapi.documents('api::event-confirmation.event-confirmation').update({
+          documentId: existingConfirmation.documentId,
+          data: {
+            confirmed,
+            confirmedGuests,
+            notes,
+            confirmedAt: new Date().toISOString()
           }
-        );
+        });
       } else {
         // Create new confirmation
         result = await strapi.documents('api::event-confirmation.event-confirmation').create({

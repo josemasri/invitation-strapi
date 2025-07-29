@@ -40,6 +40,14 @@
     },
     "notes": {
       "type": "text"
+    },
+    "source": {
+      "type": "enumeration",
+      "enum": [
+        "frontend",
+        "whatsapp"
+      ],
+      "default": "whatsapp"
     }
   }
 }

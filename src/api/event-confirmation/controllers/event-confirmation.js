@@ -67,16 +67,49 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
     try {
       const { guestId, eventId } = ctx.params;
       
+      console.log('confirmForEvent called with:', { guestId, eventId });
+      console.log('Request body:', ctx.request.body);
+      
       // Check if request body exists and provide defaults
       if (!ctx.request.body) {
+        console.error('Request body is missing');
         return ctx.badRequest('Request body is required');
       }
       
-      const { confirmed, confirmedGuests, notes } = ctx.request.body;
+      const { confirmed, confirmedGuests, notes, source = 'whatsapp' } = ctx.request.body;
       
       // Validate required fields
       if (confirmed === undefined || confirmed === null) {
+        console.error('confirmed field is missing');
         return ctx.badRequest('confirmed field is required');
+      }
+
+      console.log('Parsed data:', { confirmed, confirmedGuests, notes, source });
+
+      // Verify that guest and event exist
+      try {
+        const guest = await strapi.documents('api::guest.guest').findOne({
+          documentId: guestId
+        });
+        
+        const event = await strapi.documents('api::event.event').findOne({
+          documentId: eventId
+        });
+
+        if (!guest) {
+          console.error('Guest not found:', guestId);
+          return ctx.badRequest('Guest not found');
+        }
+
+        if (!event) {
+          console.error('Event not found:', eventId);
+          return ctx.badRequest('Event not found');
+        }
+
+        console.log('Guest and Event found:', { guest: guest.documentId, event: event.documentId });
+      } catch (verifyError) {
+        console.error('Error verifying guest/event:', verifyError);
+        return ctx.badRequest('Error verifying guest or event');
       }
 
       // Check if confirmation already exists
@@ -91,35 +124,61 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
         }
       });
 
+      console.log('Existing confirmation found:', existingConfirmation ? existingConfirmation.documentId : 'None');
+
       let result;
       if (existingConfirmation) {
-        // Update existing confirmation
+        console.log('Existing confirmation status:', existingConfirmation.confirmed);
+        
+        // Check if confirmation already exists and is not "unknown"
+        if (existingConfirmation.confirmed !== 'unknown') {
+          console.log('Confirmation already exists with status:', existingConfirmation.confirmed);
+          return ctx.badRequest({
+            error: 'CONFIRMATION_ALREADY_EXISTS',
+            message: 'Esta confirmación ya ha sido procesada y no puede ser modificada',
+            details: {
+              currentStatus: existingConfirmation.confirmed,
+              confirmedAt: existingConfirmation.confirmedAt,
+              source: existingConfirmation['source'] || 'unknown'
+            }
+          });
+        }
+        
+        console.log('Updating existing confirmation...');
+        // Update existing confirmation (only if current status is "unknown")
         result = await strapi.documents('api::event-confirmation.event-confirmation').update({
           documentId: existingConfirmation.documentId,
           data: {
             confirmed,
-            confirmedGuests,
-            notes,
+            confirmedGuests: confirmedGuests || 1,
+            notes: notes || '',
+            source,
             confirmedAt: new Date().toISOString()
           }
         });
+        console.log('Confirmation updated successfully:', result.documentId);
       } else {
+        console.log('Creating new confirmation...');
         // Create new confirmation
         result = await strapi.documents('api::event-confirmation.event-confirmation').create({
           data: {
             guest: guestId,
             event: eventId,
             confirmed,
-            confirmedGuests,
-            notes,
+            confirmedGuests: confirmedGuests || 1,
+            notes: notes || '',
+            source,
             confirmedAt: new Date().toISOString()
           }
         });
+        console.log('Confirmation created successfully:', result.documentId);
       }
 
-      return result;
+      return { data: result };
     } catch (error) {
-      ctx.throw(500, error);
+      console.error('Error in confirmForEvent:', error);
+      console.error('Error stack:', error.stack);
+      ctx.throw(500, `Error processing confirmation: ${error.message}`);
     }
   },
 

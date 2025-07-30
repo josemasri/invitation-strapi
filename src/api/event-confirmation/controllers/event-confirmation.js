@@ -73,7 +73,7 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
       // Check if request body exists and provide defaults
       if (!ctx.request.body) {
         console.error('Request body is missing');
-        return ctx.badRequest('Request body is required');
+        ctx.throw(400, 'Request body is required');
       }
       
       const { confirmed, confirmedGuests, notes, source = 'whatsapp' } = ctx.request.body;
@@ -81,7 +81,7 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
       // Validate required fields
       if (confirmed === undefined || confirmed === null) {
         console.error('confirmed field is missing');
-        return ctx.badRequest('confirmed field is required');
+        ctx.throw(400, 'confirmed field is required');
       }
 
       console.log('Parsed data:', { confirmed, confirmedGuests, notes, source });
@@ -98,18 +98,18 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
 
         if (!guest) {
           console.error('Guest not found:', guestId);
-          return ctx.badRequest('Guest not found');
+          ctx.throw(400, 'Guest not found');
         }
 
         if (!event) {
           console.error('Event not found:', eventId);
-          return ctx.badRequest('Event not found');
+          ctx.throw(400, 'Event not found');
         }
 
         console.log('Guest and Event found:', { guest: guest.documentId, event: event.documentId });
       } catch (verifyError) {
         console.error('Error verifying guest/event:', verifyError);
-        return ctx.badRequest('Error verifying guest or event');
+        ctx.throw(400, 'Error verifying guest or event');
       }
 
       // Check if confirmation already exists
@@ -130,16 +130,17 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
       if (existingConfirmation) {
         console.log('Existing confirmation status:', existingConfirmation.confirmed);
         
-        // Check if confirmation already exists and is not "unknown"
-        if (existingConfirmation.confirmed !== 'unknown') {
-          console.log('Confirmation already exists with status:', existingConfirmation.confirmed);
-          return ctx.badRequest({
+        // Only allow updates from the mobile app (app source)
+        // Block all other sources if confirmation already exists and is not "unknown"
+        if (existingConfirmation.confirmed !== 'unknown' && source !== 'app') {
+          console.log('Confirmation already exists with status:', existingConfirmation.confirmed, 'Source:', source);
+          ctx.throw(400, 'Esta confirmación ya ha sido procesada y solo puede ser modificada desde la aplicación móvil', {
             error: 'CONFIRMATION_ALREADY_EXISTS',
-            message: 'Esta confirmación ya ha sido procesada y no puede ser modificada',
             details: {
               currentStatus: existingConfirmation.confirmed,
               confirmedAt: existingConfirmation.confirmedAt,
-              source: existingConfirmation['source'] || 'unknown'
+              source: existingConfirmation['source'] || 'unknown',
+              allowedSource: 'app'
             }
           });
         }
@@ -187,7 +188,7 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
       const { guestId, eventId } = ctx.params;
 
       if (!guestId || !eventId) {
-        return ctx.badRequest('Guest ID and Event ID are required');
+        ctx.throw(400, 'Guest ID and Event ID are required');
       }
 
       const confirmations = await strapi.documents('api::event-confirmation.event-confirmation').findMany({
@@ -206,7 +207,7 @@ module.exports = createCoreController('api::event-confirmation.event-confirmatio
       });
 
       if (confirmations.length === 0) {
-        return ctx.notFound('No confirmation found for this guest and event');
+        ctx.throw(404, 'No confirmation found for this guest and event');
       }
 
       // Return the first confirmation (there should only be one per guest per event)

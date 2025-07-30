@@ -45,7 +45,8 @@
       "type": "enumeration",
       "enum": [
         "frontend",
-        "whatsapp"
+        "whatsapp",
+        "app"
       ],
       "default": "whatsapp"
     }

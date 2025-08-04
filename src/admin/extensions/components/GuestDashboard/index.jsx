@@ -401,6 +401,7 @@ const GuestDashboard = () => {
             // Prepare guest data
             const guestData = {
               name: row.name.trim(),
+              invitationName: row.invitationName ? row.invitationName.trim() : row.name.trim(), // Use invitationName if provided, otherwise use name
               phone: row.phone ? row.phone.trim() : null,
               maxGuests: row.maxGuests ? parseInt(row.maxGuests) : 1,
               confirmedGuests: null,
@@ -475,12 +476,14 @@ const GuestDashboard = () => {
     const sampleData = [
       {
         name: "Juan Pérez",
+        invitationName: "Juan y familia",
         phone: "5512345678",
         maxGuests: "2",
         invitedBy: "Groom",
       },
       {
         name: "María García",
+        invitationName: "María García",
         phone: "5587654321",
         maxGuests: "3",
         invitedBy: "Bride",

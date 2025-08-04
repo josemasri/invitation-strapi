@@ -102,7 +102,7 @@ const GuestList = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Nombre o teléfono"
+                  placeholder="Nombre, invitación o teléfono"
                   style={{
                     padding: "4px",
                     borderRadius: "4px",
@@ -194,7 +194,7 @@ const GuestList = ({
       {/* Contenedor con scroll horizontal para pantallas pequeñas */}
       <Box style={{ overflowX: "auto" }}>
         <Table
-          colCount={9} /* Actualizado para incluir la columna de mensajes enviados */
+          colCount={10} /* Actualizado para incluir la columna de nombre en invitación */
           rowCount={
             guests.filter((guest) => {
               const matchesStatus =
@@ -210,6 +210,10 @@ const GuestList = ({
                   ? true
                   : (guest.name &&
                       guest.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())) ||
+                    (guest.invitationName &&
+                      guest.invitationName
                         .toLowerCase()
                         .includes(searchQuery.toLowerCase())) ||
                     (guest.phone && guest.phone.includes(searchQuery));
@@ -232,6 +236,9 @@ const GuestList = ({
             </Th>
             <Th>
               <Typography variant="sigma">Nombre</Typography>
+            </Th>
+            <Th>
+              <Typography variant="sigma">Nombre en Invitación</Typography>
             </Th>
             <Th>
               <Typography variant="sigma">Teléfono</Typography>
@@ -277,6 +284,10 @@ const GuestList = ({
                       guest.name
                         .toLowerCase()
                         .includes(searchQuery.toLowerCase())) ||
+                    (guest.invitationName &&
+                      guest.invitationName
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())) ||
                     (guest.phone && guest.phone.includes(searchQuery));
               return matchesStatus && matchesInvitedBy && matchesSearch;
             })
@@ -294,6 +305,9 @@ const GuestList = ({
                 </Td>
                 <Td>
                   <Typography>{guest.name}</Typography>
+                </Td>
+                <Td>
+                  <Typography>{guest.invitationName || guest.name}</Typography>
                 </Td>
                 <Td>
                   <Typography>{guest.phone || "-"}</Typography>

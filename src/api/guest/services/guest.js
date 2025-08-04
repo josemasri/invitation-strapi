@@ -143,12 +143,12 @@ module.exports = createCoreService('api::guest.guest', ({ strapi }) => ({
           const parsed = row.phone ? this.parsePhoneNumber(row.phone) : { countryCode: '521', phone: '' };
           const guestData = {
             name: row.name,
+            invitationName: row.invitationName || row.name, // Use invitationName if provided, otherwise use name
             countryCode: parsed.countryCode,
             phone: parsed.phone,
             maxGuests: parseInt(row.maxGuests) || 1,
             invitedBy: row.invitedBy || null,
-            timesSended: parseInt(row.timesSended) || 0,
-            message: row.message || null
+            timesSended: parseInt(row.timesSended) || 0
           };
           
           // Create the guest

@@ -18,6 +18,7 @@ const GuestFormModal = ({
   const isEditMode = !!initialData;
   const [formData, setFormData] = useState({
     name: "",
+    invitationName: "",
     phone: "",
     maxGuests: 1,
     confirmedGuests: null,
@@ -29,6 +30,7 @@ const GuestFormModal = ({
     if (initialData) {
       setFormData({
         name: initialData.name || "",
+        invitationName: initialData.invitationName || "",
         phone: initialData.phone || "",
         maxGuests: initialData.maxGuests || 1,
         confirmedGuests: initialData.confirmedGuests || null,
@@ -39,6 +41,7 @@ const GuestFormModal = ({
       // Reset form when opening in add mode
       setFormData({
         name: "",
+        invitationName: "",
         phone: "",
         maxGuests: 1,
         confirmedGuests: null,
@@ -105,6 +108,26 @@ const GuestFormModal = ({
                   value={formData.name}
                   onChange={(e) => handleChange("name", e.target.value)}
                   required
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd",
+                  }}
+                />
+              </Box>
+            </Box>
+
+            <Box paddingBottom={3}>
+              <Typography variant="pi" fontWeight="bold">
+                Nombre en la Invitación
+              </Typography>
+              <Box paddingTop={1}>
+                <input
+                  type="text"
+                  placeholder="Nombre como aparecerá en la invitación (opcional)"
+                  value={formData.invitationName}
+                  onChange={(e) => handleChange("invitationName", e.target.value)}
                   style={{
                     width: "100%",
                     padding: "8px",

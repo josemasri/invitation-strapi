@@ -63,6 +63,10 @@
       "relation": "oneToMany",
       "target": "api::message-status.message-status",
       "mappedBy": "event"
+    },
+    "giftRegistryLinks": {
+      "type": "json",
+      "description": "Array of gift registry links with name and URL"
     }
   }
 }

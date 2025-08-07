@@ -507,6 +507,108 @@ const GuestDashboard = () => {
     document.body.removeChild(link);
   };
 
+  // Download CSV for confirmed guests
+  const downloadConfirmedGuestsCSV = async () => {
+    try {
+      if (!selectedEvent) {
+        alert("Por favor selecciona un evento");
+        return;
+      }
+
+      const response = await axios({
+        method: "GET",
+        url: `/api/guests/export-csv?eventId=${selectedEvent}&status=confirmed`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+        },
+        responseType: 'blob'
+      });
+
+      // Create blob and download link
+      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `invitados_confirmados_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading CSV:", error);
+      alert("Error al descargar el archivo CSV: " + error.message);
+    }
+  };
+
+  // Download CSV for pending guests
+  const downloadPendingGuestsCSV = async () => {
+    try {
+      if (!selectedEvent) {
+        alert("Por favor selecciona un evento");
+        return;
+      }
+
+      const response = await axios({
+        method: "GET",
+        url: `/api/guests/export-csv?eventId=${selectedEvent}&status=pending`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+        },
+        responseType: 'blob'
+      });
+
+      // Create blob and download link
+      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `invitados_pendientes_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading CSV:", error);
+      alert("Error al descargar el archivo CSV: " + error.message);
+    }
+  };
+
+  // Download CSV for all guests
+  const downloadAllGuestsCSV = async () => {
+    try {
+      if (!selectedEvent) {
+        alert("Por favor selecciona un evento");
+        return;
+      }
+
+      const response = await axios({
+        method: "GET",
+        url: `/api/guests/export-csv?eventId=${selectedEvent}`,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("jwtToken")?.replace(/^"|"$/g, "")}`,
+        },
+        responseType: 'blob'
+      });
+
+      // Create blob and download link
+      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `todos_los_invitados_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error downloading CSV:", error);
+      alert("Error al descargar el archivo CSV: " + error.message);
+    }
+  };
+
   // Close upload results dialog
   const closeUploadDialog = () => {
     setShowUploadDialog(false);
@@ -841,9 +943,20 @@ const GuestDashboard = () => {
           <Box>
             <Typography variant="beta">Dashboard de Invitados</Typography>
           </Box>
-          <Button onClick={fetchGuestData} size="S">
-            Refrescar
-          </Button>
+          <Flex gap={2}>
+            <Button onClick={downloadAllGuestsCSV} variant="secondary" size="S">
+              📥 Descargar Todos
+            </Button>
+            <Button onClick={downloadConfirmedGuestsCSV} variant="success" size="S">
+              📥 Confirmados
+            </Button>
+            <Button onClick={downloadPendingGuestsCSV} variant="secondary" size="S">
+              📥 Pendientes
+            </Button>
+            <Button onClick={fetchGuestData} size="S">
+              Refrescar
+            </Button>
+          </Flex>
         </Flex>
 
         {/* Selector de Eventos */}

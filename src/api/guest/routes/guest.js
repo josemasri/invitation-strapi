@@ -30,6 +30,15 @@ const myExtraRoutes = [
       middlewares: [],
     },
   },
+  {
+    method: 'GET',
+    path: '/guests/export-csv',
+    handler: 'guest.exportCSV',
+    config: {
+      policies: ['admin::isAuthenticatedAdmin'],
+      middlewares: [],
+    },
+  },
 ];
 
 module.exports = customRouter(defaultRouter, myExtraRoutes);
